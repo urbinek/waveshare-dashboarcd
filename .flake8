@@ -1,0 +1,15 @@
+[flake8]
+# Ignoruj konkretne błędy globalnie w całym projekcie
+ignore =
+    F401,
+    E501,
+    E302
+
+ Wyklucz całe foldery lub pliki z analizy
+# Domyślnie flake8 ignoruje .git, .hg, .svn, __pycache__
+exclude =
+    .git,
+    __pycache__,
+    docs/,
+    venv/,
+    build/

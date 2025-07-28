@@ -1,0 +1,45 @@
+project_name: waveshare-dashboard
+description: Niewielki peojekt domowego zegara/kalendarza opartego o Raspberry Pi 2w oraz trójkolorowy wyswietlacz WeShare 7.5B.
+kluczowe_funkcjonalności:
+  - Wyświetlanie aktualnej godziny w formacie '%H:%M'
+  - Wyświetlanie aktyualnego dnia tygodnia w formacie '%A'
+  - Wyświetlanie aktualnej daty w formacie '%d %B %Y'
+  - Synchronizacja kalendarza z internetem:
+      - Synchronizacja z wydarzeniami kalendarza google:
+          - logowanie z użyciem tokena albo aplikacji
+          - Synchronizacja z kalendarzem świąt i dni wolnych od pracy w Polsce
+          - synchronizacja z kalendarzem świąt nietypowych
+  - Wyswietlanie kalendarza aktualnego miesiaca:
+      - kalendarz ma być złożony dni rysowanych jako tabela, z komórkami bez ramek
+      - domyslnym wyglądem danego dnia ma byc czarny tekst bez wypełnionej ramki
+      - weekend, swieta i dni wolne od pracy mają mieć czerwony tekst bez wypełnionej ramki ramki
+      - Specjalne wydarzenia synchronizowane z kalendarzem google mają mieć "odwrócony schemat" t.j. biały teksty i ramka wypełniona kolorem (czerwonym albo czarnym w zależności od weekendu/świeta)
+      - Pod kalendarzem ma wyświetlać się jednolinikowy tekst o nietypowym święcie
+  - Wywietlanie listy 5 najbliższych zadań z synchronizowanergo kalendarza google
+  - Wyświetlanie aktualnej pogody:
+      - Dane mają być pobierane z Accuweather API
+      - Prosta ikona/grafika reprezentująca obecną pogodę
+      - temperatura rzeczywista i odczuwalna
+      - wilgotność
+      - prędkość i kierynek wiatru
+wymogi_techniczne:
+  - skrypty ma byc oparyty na środowisku Python
+  - główny proces może być ciagle uruchomiony (nadzorowany przez systemd)
+  - środowisko ma być modularne:
+      - każdy element powinien byc obsługiwany przez osobny skrypty
+      - każdy moduł powinien zapisywać dane do osobnego pliku json
+      - odświeżanie danych przez poszczególne moduły ma być asynchroniczne:
+        - wyświetlanie daty/godziny/dnia tygodnia co 60 sekund
+        - informacje pogodowe co 60 min
+        - informacje o kalendarzu osobistym co 4godziny
+        - informacje o świętach i dniach nietypowych raz dziennie
+  - przechowywane jak najwięcej informacji w pamięci RAM
+  - jeśli jakieś pliki mają być zapisywane, niech będzie to /tmp
+  - uzyj czcionki google roboto mono, chce żeby wazniejsze elementy były pogrubione
+  - różnego rodzaju ikony mogą byc znakami UTF albo ikonami mdi
+  - generowany obraz ma być wstępnie jako SVG, i jeśli jest taka możliwość tak wyświetlony w przeciwnym wypadku niech zostanie przekonwertowany to najwydajniejszego formatu
+  - do odświeżania obrazu używaj częściowego odświeżania
+  - pełne odświeżanie wykonuj co godzinę
+sprzęt:
+  - Raspberry Pi 2w
+  - WaveShare 7.5inch E-Paper (B) E-Ink Raw Display, 800×480, Red / Black / White, SPI

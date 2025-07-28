@@ -1,0 +1,42 @@
+#
+# Przykładowy plik konfiguracyjny.
+# Skopiuj ten plik do `config.py` i dostosuj wartości do swoich potrzeb.
+# `cp config.py.example config.py`
+#
+
+# --- Ścieżki do plików ---
+# Czcionki
+FONT_ROBOTO_MONO_BOLD = "assets/fonts/RobotoMono-Bold.ttf"
+FONT_ROBOTO_MONO_REGULAR = "assets/fonts/RobotoMono-Regular.ttf"
+
+# Ikony i obrazy
+WEATHER_ICONS_PATH = "assets/icons/weather"
+DEFAULT_WEATHER_ICON_PATH = "assets/icons/mdi/help-circle-outline.svg"
+SPLASH_WAVESHARE_LOGO_PATH = "assets/logos/waveshare.svg"
+SPLASH_CIRCLE_LOGO_PATH = "assets/logos/circle_logo.svg"
+EASTER_EGG_IMAGE_PATH = "assets/img/easter_egg.png"
+
+# Pliki poświadczeń Google
+GOOGLE_CREDS_FILE = 'credentials.json'
+GOOGLE_TOKEN_FILE = 'token.json'
+
+# --- Konfiguracja modułów ---
+# Pogoda
+IMGW_STATION_NAME = "KATOWICE"  # Nazwa stacji IMGW
+LOCATION_LAT = 50.25            # Twoja szerokość geograficzna
+LOCATION_LON = 19.0             # Twoja długość geograficzna
+
+# Kalendarz Google
+GOOGLE_CALENDAR_IDS = {
+    'personal': 'primary',
+    'holidays': 'pl.polish#holiday@group.v.calendar.google.com',
+    'unusual': 'g2gbf4u5jc2s82c98614t40d2g@group.calendar.google.com',  # Kalendarz nietypowych świąt
+}
+MAX_UPCOMING_EVENTS = 5
+
+# --- Ustawienia Aplikacji ---
+# Nazwa katalogu na pliki tymczasowe (w /dev/shm lub /tmp)
+CACHE_DIR_NAME = "waveshare-dashboard-cache"
+
+# Obróć obraz o 180 stopni. Przydatne, jeśli wyświetlacz jest zamontowany "do góry nogami".
+FLIP_DISPLAY = False

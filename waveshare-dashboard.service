@@ -1,0 +1,14 @@
+[Unit]
+Description=Waveshare E-Paper Dashboard Service
+After=network.target
+
+[Service]
+ExecStart=/opt/waveshare-dashboard/.venv/bin/python3 -u main.py
+WorkingDirectory=/opt/waveshare-dashboard
+StandardOutput=journal
+StandardError=journal
+Restart=always
+User=urbinek
+
+[Install]
+WantedBy=multi-user.target
