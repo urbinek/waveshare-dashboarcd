@@ -38,7 +38,7 @@ sudo raspi-config
 ### Krok 2: Klonowanie i instalacja zależności
 
 ```bash
-git clone <URL_TWOJEGO_REPOZYTORIUM>
+git clone https://github.com/urbinek/waveshare-dashboard
 cd waveshare-dashboard
 
 # Utwórz i aktywuj wirtualne środowisko
