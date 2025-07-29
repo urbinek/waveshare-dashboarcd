@@ -14,7 +14,7 @@ WEATHER_ICONS_PATH = "assets/icons/weather"
 DEFAULT_WEATHER_ICON_PATH = "assets/icons/mdi/help-circle-outline.svg"
 SPLASH_WAVESHARE_LOGO_PATH = "assets/logos/waveshare.svg"
 SPLASH_CIRCLE_LOGO_PATH = "assets/logos/circle_logo.svg"
-EASTER_EGG_IMAGE_PATH = "assets/img/easter_egg.png"
+EASTER_EGG_IMAGE_PATH = 'assets/2137/papaj.jpg'
 
 # Pliki poświadczeń Google
 GOOGLE_CREDS_FILE = 'credentials.json'
