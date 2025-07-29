@@ -37,25 +37,33 @@ def display_splash_screen(epd_lock, flip=False):
         left_box_rect = (0, 0, EPD_WIDTH // 2, EPD_HEIGHT)
         right_box_rect = (EPD_WIDTH // 2, 0, EPD_WIDTH, EPD_HEIGHT)
 
-        waveshare_logo = drawing_utils.render_svg_with_cache(config.SPLASH_WAVESHARE_LOGO_PATH, width=360)
+        waveshare_logo = drawing_utils.render_svg_with_cache(config.SPLASH_WAVESHARE_LOGO_PATH, size=360)
         img_x = (left_box_rect[2] - waveshare_logo.width) // 2
         img_y = (left_box_rect[3] - waveshare_logo.height) // 2
-        black_image.paste(waveshare_logo, (img_x, img_y))
+        if waveshare_logo:
+            # Tworzymy 1-bitową maskę z kanału alfa logo. Zapewnia to, że każda nieprzezroczysta
+            # część logo staje się częścią kształtu, unikając ditheringu (rozpraszania) szarości.
+            mask = waveshare_logo.getchannel('A').point(lambda i: i > 128, '1')
+            # Wklejamy kolor czarny (0) na główny obraz, używając wygenerowanej maski.
+            black_image.paste(0, (img_x, img_y), mask)
 
-        circle_logo = drawing_utils.render_svg_with_cache(config.SPLASH_CIRCLE_LOGO_PATH, width=150)
+        circle_logo = drawing_utils.render_svg_with_cache(config.SPLASH_CIRCLE_LOGO_PATH, size=150)
         dashboard_text = "DASHBOARD"
         text_padding = 15
 
         text_bbox = draw_black.textbbox((0, 0), dashboard_text, font=dashboard_font)
         text_height = text_bbox[3] - text_bbox[1]
-        total_height = circle_logo.height + text_padding + text_height
+        circle_logo_height = circle_logo.height if circle_logo else 0
+        total_height = circle_logo_height + text_padding + text_height
 
         block_y_start = (right_box_rect[3] - total_height) // 2
-        circle_x = right_box_rect[0] + ((right_box_rect[2] - right_box_rect[0]) - circle_logo.width) // 2
-        black_image.paste(circle_logo, (circle_x, block_y_start))
+        if circle_logo:
+            circle_x = right_box_rect[0] + ((right_box_rect[2] - right_box_rect[0]) - circle_logo.width) // 2
+            mask = circle_logo.getchannel('A').point(lambda i: i > 128, '1')
+            black_image.paste(0, (circle_x, block_y_start), mask)
 
         text_x = right_box_rect[0] + (right_box_rect[2] - right_box_rect[0]) // 2
-        text_y = block_y_start + circle_logo.height + text_padding
+        text_y = block_y_start + circle_logo_height + text_padding
         draw_black.text((text_x, text_y), dashboard_text, font=dashboard_font, fill=0, anchor="mt")
 
         # Odwrócenie kolorów obrazu, aby uzyskać czarne tło i białe elementy

@@ -144,35 +144,19 @@ def generate_image(layout_config, draw_borders=False):
 
     return black_image, red_image
 
-def update_display(layout_config, force_full_refresh=False, draw_borders=False, apply_pixel_shift=False, flip=False):
-    """Inicjalizuje wyświetlacz i wysyła do niego wygenerowany obraz."""
+def _execute_display_update(black_img, red_img, mode, flip, clear_screen=False):
+    """
+    Prywatna funkcja pomocnicza do obsługi komunikacji z wyświetlaczem E-Ink.
+    Obsługuje obracanie obrazu, inicjalizację EPD, wysyłanie danych i usypianie.
+    """
     global _FLIP_LOGGED
     try:
         with EPD_LOCK:
-            logging.info("Rozpoczynanie aktualizacji wyświetlacza e-ink.")
-            epd = epd7in5b_V2.EPD()
-            epd.init()
+            # Użyj poziomu DEBUG dla częstych, szybkich aktualizacji, aby nie zaśmiecać logów
+            log_level = logging.DEBUG if mode == 'fast' else logging.INFO
+            logging.log(log_level, f"Rozpoczynanie aktualizacji wyświetlacza (tryb: {mode}).")
 
-            if force_full_refresh:
-                logging.debug("Czyszczenie ekranu przed pełnym odświeżeniem.")
-                epd.Clear()
-
-            black_img, red_img = generate_image(layout_config, draw_borders=draw_borders)
-
-            if apply_pixel_shift:
-                max_shift = 2
-                dx = random.randint(-max_shift, max_shift)
-                dy = random.randint(-max_shift, max_shift)
-                logging.info(f"Stosowanie przesunięcia pikseli o ({dx}, {dy}) w celu ochrony ekranu.")
-                black_img = _shift_image(black_img, dx, dy)
-                red_img = _shift_image(red_img, dx, dy)
-
-            # Zapisz kanoniczny (nieobrócony) obraz do pamięci podręcznej.
-            with FileLock(IMAGE_LOCK_PATH):
-                black_img.save(IMAGE_BLACK_PATH, "PNG")
-                red_img.save(IMAGE_RED_PATH, "PNG")
-
-            # Teraz, w razie potrzeby, obróć kopię do wyświetlenia.
+            # Obróć kopię obrazu do wyświetlenia, jeśli jest to wymagane.
             if flip:
                 if not _FLIP_LOGGED:
                     logging.info("Obracanie obrazu o 180 stopni.")
@@ -185,64 +169,81 @@ def update_display(layout_config, force_full_refresh=False, draw_borders=False, 
                 black_img_display = black_img
                 red_img_display = red_img
 
+            epd = epd7in5b_V2.EPD()
+
+            if mode == 'full':
+                epd.init()
+                if clear_screen:
+                    logging.debug("Czyszczenie ekranu przed pełnym odświeżeniem.")
+                    epd.Clear()
+            elif mode == 'fast':
+                epd.init_Fast()
+            else:
+                raise ValueError(f"Nieznany tryb aktualizacji: {mode}")
+
             epd.display(epd.getbuffer(black_img_display), epd.getbuffer(red_img_display))
             epd.sleep()
-            logging.info("Aktualizacja wyświetlacza zakończona.")
+            logging.log(log_level, f"Aktualizacja wyświetlacza (tryb: {mode}) zakończona.")
+
     except Exception as e:
         logging.error(f"Wystąpił błąd podczas komunikacji z wyświetlaczem: {e}", exc_info=True)
+
+def update_display(layout_config, force_full_refresh=False, draw_borders=False, apply_pixel_shift=False, flip=False):
+    """Generuje nowy obraz i wykonuje pełne odświeżenie wyświetlacza."""
+    try:
+        logging.info("Generowanie nowego obrazu do pełnego odświeżenia.")
+        black_img, red_img = generate_image(layout_config, draw_borders=draw_borders)
+
+        if apply_pixel_shift:
+            max_shift = 2
+            dx = random.randint(-max_shift, max_shift)
+            dy = random.randint(-max_shift, max_shift)
+            logging.info(f"Stosowanie przesunięcia pikseli o ({dx}, {dy}) w celu ochrony ekranu.")
+            black_img = _shift_image(black_img, dx, dy)
+            red_img = _shift_image(red_img, dx, dy)
+
+        # Zapisz kanoniczny (nieobrócony) obraz do pamięci podręcznej.
+        with FileLock(IMAGE_LOCK_PATH):
+            black_img.save(IMAGE_BLACK_PATH, "PNG")
+            red_img.save(IMAGE_RED_PATH, "PNG")
+
+        _execute_display_update(black_img, red_img, mode='full', flip=flip, clear_screen=force_full_refresh)
+    except Exception as e:
+        logging.error(f"Wystąpił błąd podczas przygotowywania pełnej aktualizacji: {e}", exc_info=True)
 
 def partial_update_time(layout_config, draw_borders=False, flip=False):
     """Aktualizuje tylko panel czasu na ekranie, używając szybkiego odświeżenia."""
     time_panel_config = layout_config.get('time')
     if not time_panel_config or not time_panel_config.get('enabled', True):
         logging.debug("Panel czasu jest wyłączony w konfiguracji, pomijam częściową aktualizację.")
-        # Używamy debug, bo to będzie logowane co minutę i zaśmiecałoby logi na poziomie INFO.
         return
 
     try:
-        with EPD_LOCK:
-            with FileLock(IMAGE_LOCK_PATH):
-                if not os.path.exists(IMAGE_BLACK_PATH) or not os.path.exists(IMAGE_RED_PATH):
-                    logging.error("Brak zapisanych obrazów cache. Nie można wykonać częściowej aktualizacji. Zostanie ona wykonana przy następnym głównym cyklu.")
-                    return
+        with FileLock(IMAGE_LOCK_PATH):
+            if not os.path.exists(IMAGE_BLACK_PATH) or not os.path.exists(IMAGE_RED_PATH):
+                logging.error("Brak zapisanych obrazów cache. Nie można wykonać częściowej aktualizacji. Zostanie ona wykonana przy następnym głównym cyklu.")
+                return
 
-                black_image = Image.open(IMAGE_BLACK_PATH)
-                red_image = Image.open(IMAGE_RED_PATH)
+            black_image = Image.open(IMAGE_BLACK_PATH)
+            red_image = Image.open(IMAGE_RED_PATH)
 
-            draw_black = ImageDraw.Draw(black_image)
-            fonts = drawing_utils.load_fonts()
-            time_data = safe_read_json('time.json')
-            weather_data = safe_read_json('weather.json')
+        draw_black = ImageDraw.Draw(black_image)
+        fonts = drawing_utils.load_fonts()
+        time_data = safe_read_json('time.json')
+        weather_data = safe_read_json('weather.json')
 
-            draw_black.rectangle(time_panel_config['rect'], fill=255)
-            time_panel.draw_panel(black_image, draw_black, time_data, weather_data, fonts, time_panel_config)
+        draw_black.rectangle(time_panel_config['rect'], fill=255)
+        time_panel.draw_panel(black_image, draw_black, time_data, weather_data, fonts, time_panel_config)
 
-            if draw_borders:
-                draw_black.rectangle(time_panel_config['rect'], outline=0)
+        if draw_borders:
+            draw_black.rectangle(time_panel_config['rect'], outline=0)
 
-            # Zapisz zaktualizowany kanoniczny (nieobrócony) obraz z powrotem do pamięci podręcznej.
-            with FileLock(IMAGE_LOCK_PATH):
-                black_image.save(IMAGE_BLACK_PATH, "PNG")
+        with FileLock(IMAGE_LOCK_PATH):
+            black_image.save(IMAGE_BLACK_PATH, "PNG")
 
-            # Teraz, w razie potrzeby, obróć kopię do wyświetlenia.
-            if flip:
-                logging.debug("Obracanie obrazu o 180 stopni (aktualizacja częściowa).")
-                black_image_display = black_image.rotate(180)
-                red_image_display = red_image.rotate(180)
-            else:
-                black_image_display = black_image
-                red_image_display = red_image
-
-            logging.info("Rozpoczynanie szybkiej aktualizacji (tylko czas).")
-            epd = epd7in5b_V2.EPD()
-            epd.init_Fast()
-
-            epd.display(epd.getbuffer(black_image_display), epd.getbuffer(red_image_display))
-
-            epd.sleep()
-            logging.info("Szybka aktualizacja (tylko czas) zakończona.")
+        _execute_display_update(black_image, red_image, mode='fast', flip=flip)
     except Exception as e:
-        logging.error(f"Wystąpił błąd podczas szybkiej komunikacji z wyświetlaczem: {e}", exc_info=True)
+        logging.error(f"Wystąpił błąd podczas przygotowywania częściowej aktualizacji: {e}", exc_info=True)
 
 
 def clear_display():

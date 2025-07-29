@@ -1,88 +1,114 @@
 import logging
+from datetime import datetime, timezone
 from PIL import Image
+from dateutil import parser
+
 from modules import drawing_utils
 import config
 
-def _draw_text_only_layout(draw, weather_data, fonts, box_info):
-    """Rysuje uproszczony, tekstowy layout pogody w przypadku braku ikon."""
-    logging.warning("Użyto zastępczego layoutu dla pogody (tylko tekst).")
-    rect = box_info['rect']
-    x_center = rect[0] + (rect[2] - rect[0]) // 2
-
-    temp_text = f"{weather_data.get('temp_real', '--')}°C"
-    draw.text((x_center, rect[1] + 60), temp_text, font=fonts['weather_temp'], fill=0, anchor="mt")
-
-    details_y = rect[1] + 120
-    details_text = (
-        f"Wilgotność: {weather_data.get('humidity', '--')}%\n"
-        f"Ciśnienie: {weather_data.get('pressure', '--')} hPa"
-    )
-    draw.multiline_text((x_center, details_y), details_text, font=fonts['small'], fill=0, anchor="ma", align="center", spacing=6)
-
-def draw_panel(image, draw, weather_data, fonts, box_info):
+def _format_timedelta_human(delta):
     """
-    Rysuje uproszczony panel pogody z ikoną, temperaturą, wilgotnością i ciśnieniem.
-    Layout:
-    {ikona pogody} {temperatura}
-    {ikona wilg.}{wilgotność} {ikona ciś.}{ciśnienie}
+    Formatuje obiekt timedelta na czytelny dla człowieka ciąg znaków, np. '2h temu'.
     """
-    try:
-        rect = box_info['rect']
-        x0, y0, x1, y1 = rect
-        panel_width = x1 - x0
-        panel_height = y1 - y0
-        padding = 20
+    seconds = delta.total_seconds()
 
-        # --- Górny wiersz: Ikona pogody i temperatura ---
-        main_icon_path = weather_data.get('icon', config.DEFAULT_WEATHER_ICON_PATH)
-        main_icon_size = 90
-        main_icon_image = drawing_utils.render_svg_with_cache(main_icon_path, size=main_icon_size)
+    # Mniej niż 2 minuty traktujemy jako "przed chwilą"
+    if seconds < 120:
+        return "przed chwilą"
 
-        if not main_icon_image:
-             raise ValueError(f"Nie można wyrenderować głównej ikony pogody: {main_icon_path}")
+    minutes = round(seconds / 60)
+    if minutes < 60:
+        return f"{minutes}m temu"
 
-        temp_text = f"{weather_data.get('temp_real', '--')}°C"
-        temp_font = fonts['weather_temp']
+    hours = round(minutes / 60)
+    if hours < 24:
+        return f"{hours}h temu"
 
-        temp_text_width = int(draw.textlength(temp_text, font=temp_font))
-        total_top_width = main_icon_size + padding + temp_text_width
-        start_x_top = x0 + (panel_width - total_top_width) // 2
+    days = round(hours / 24)
+    return f"{days}d temu"
 
-        icon_x = start_x_top
-        icon_y = y0 + 15
-        image.paste(main_icon_image, (int(icon_x), int(icon_y)), main_icon_image if main_icon_image.mode == 'RGBA' else None)
+def draw_panel(black_image, draw_black, weather_data, fonts, panel_config):
+    """Rysuje panel pogody, w tym wskaźnik wieku danych, jeśli są nieaktualne."""
+    rect = panel_config.get('rect', [0, 0, 0, 0])
+    x1, y1, x2, y2 = rect
+    y_offset = panel_config.get('y_offset', 0)
+    y1 += y_offset
+    y2 += y_offset
 
-        temp_x = icon_x + main_icon_size + padding
-        temp_y = icon_y + main_icon_size // 2
-        draw.text((int(temp_x), int(temp_y)), temp_text, font=temp_font, fill=0, anchor="lm")
+    # --- Lewa strona: Ikona pogody ---
+    icon_path = weather_data.get('icon')
+    if icon_path:
+        icon_img = drawing_utils.render_svg_with_cache(icon_path, size=120)
+        if icon_img:
+            # Wycentrowanie ikony w pionie
+            icon_y = y1 + (y2 - y1 - icon_img.height) // 2
+            # Użycie maski (kanału alpha) do poprawnego wklejenia ikony bez czarnego tła
+            black_image.paste(icon_img, (x1 + 20, icon_y), mask=icon_img)
 
-        # --- Dolny wiersz: Wilgotność i ciśnienie ---
-        details_font = fonts['small']
-        details_icon_size = 24
+    # --- Prawa strona: Temperatura i pozostałe dane ---
+    right_column_x = x1 + 160  # Pozycja startowa dla prawej kolumny
 
-        # Zmieniono pozycjonowanie: środek dolnego wiersza jest teraz 50px poniżej środka temperatury,
-        # co zmniejsza odstęp. Poprzednio był on zakotwiczony do dołu panelu.
-        details_y_center = temp_y + 50
-        details_y = details_y_center - (details_icon_size // 2)
+    # Rysowanie temperatury
+    temp_text = f"{weather_data.get('temp_real', '--')}°"
+    draw_black.text((right_column_x, y1 + 15), temp_text, font=fonts['weather_temp'], fill=0, anchor="lt")
 
-        humidity_icon = drawing_utils.render_svg_with_cache(config.ICON_HUMIDITY_PATH, size=details_icon_size)
-        pressure_icon = drawing_utils.render_svg_with_cache(config.ICON_PRESSURE_PATH, size=details_icon_size)
+    # --- Rysowanie wilgotności i ciśnienia w jednej linii z ikonami ---
+    icon_size = 36  # Zwiększono z 24
+    text_y_pos = y2 - 30
 
-        humidity_text = f"{weather_data.get('humidity', '--')}%"
-        pressure_text = f"{weather_data.get('pressure', '----')} hPa"
-        humidity_block_width = details_icon_size + 5 + int(draw.textlength(humidity_text, font=details_font))
-        pressure_block_width = details_icon_size + 5 + int(draw.textlength(pressure_text, font=details_font))
-        total_bottom_width = humidity_block_width + padding + pressure_block_width
-        start_x_bottom = x0 + (panel_width - total_bottom_width) // 2
+    # --- Centrowanie bloku wilgotności i ciśnienia ---
+    humidity_icon = drawing_utils.render_svg_with_cache(config.ICON_HUMIDITY_PATH, size=icon_size)
+    humidity_text = f"{weather_data.get('humidity', '--')}%"
+    pressure_icon = drawing_utils.render_svg_with_cache(config.ICON_PRESSURE_PATH, size=icon_size)
+    pressure_text = f"{weather_data.get('pressure', '--')} hPa"
 
-        humidity_icon_x = start_x_bottom
-        image.paste(humidity_icon, (int(humidity_icon_x), int(details_y)), humidity_icon if humidity_icon.mode == 'RGBA' else None)
-        draw.text((int(humidity_icon_x + details_icon_size + 5), int(details_y_center)), humidity_text, font=details_font, fill=0, anchor='lm')
+    # Obliczanie całkowitej szerokości bloku
+    total_width = 0
+    padding_between_items = 25
+    icon_text_gap = 5
 
-        pressure_icon_x = humidity_icon_x + humidity_block_width + padding
-        image.paste(pressure_icon, (int(pressure_icon_x), int(details_y)), pressure_icon if pressure_icon.mode == 'RGBA' else None)
-        draw.text((int(pressure_icon_x + details_icon_size + 5), int(details_y_center)), pressure_text, font=details_font, fill=0, anchor='lm')
+    if humidity_icon:
+        total_width += humidity_icon.width + icon_text_gap
+    total_width += draw_black.textlength(humidity_text, font=fonts['small'])
+    total_width += padding_between_items
+    if pressure_icon:
+        total_width += pressure_icon.width + icon_text_gap
+    total_width += draw_black.textlength(pressure_text, font=fonts['small'])
 
-    except Exception as e:
-        logging.error(f"Błąd podczas renderowania panelu pogody: {e}", exc_info=True)
-        _draw_text_only_layout(draw, weather_data, fonts, box_info)
+    # Obliczanie pozycji startowej X, aby wycentrować blok w całym panelu
+    panel_width = x2 - x1
+    start_x = x1 + (panel_width - total_width) // 2
+    current_x = start_x
+
+    # Wilgotność
+    if humidity_icon:
+        black_image.paste(humidity_icon, (int(current_x), int(text_y_pos - icon_size // 2)), mask=humidity_icon)
+        current_x += humidity_icon.width + icon_text_gap
+    draw_black.text((current_x, text_y_pos), humidity_text, font=fonts['small'], fill=0, anchor="lm")
+    current_x += draw_black.textlength(humidity_text, font=fonts['small']) + padding_between_items
+
+    # Ciśnienie
+    if pressure_icon:
+        black_image.paste(pressure_icon, (int(current_x), int(text_y_pos - icon_size // 2)), mask=pressure_icon)
+        current_x += pressure_icon.width + icon_text_gap
+    draw_black.text((current_x, text_y_pos), pressure_text, font=fonts['small'], fill=0, anchor="lm")
+
+    # --- Wskaźnik nieaktualnych danych ---
+    timestamp_str = weather_data.get('timestamp')
+    if timestamp_str:
+        try:
+            data_time = parser.isoparse(timestamp_str)
+            age = datetime.now(timezone.utc) - data_time
+
+            # Wyświetlaj wskaźnik, jeśli dane są starsze niż 65 minut
+            if age.total_seconds() > 60 * 65:
+                logging.info(f"Dane pogodowe są nieaktualne ({_format_timedelta_human(age)}). Wyświetlam ikonę ostrzegawczą.")
+
+                # Renderuj i rysuj ikonę problemu z synchronizacją
+                sync_icon_size = 30
+                sync_icon = drawing_utils.render_svg_with_cache(config.ICON_SYNC_PROBLEM_PATH, size=sync_icon_size)
+                icon_pos_x = x2 - sync_icon.width - 15
+                icon_pos_y = y1 + 15
+                black_image.paste(sync_icon, (icon_pos_x, icon_pos_y), mask=sync_icon)
+        except (parser.ParserError, TypeError) as e:
+            logging.warning(f"Nie można sparsować znacznika czasu danych pogodowych ('{timestamp_str}'): {e}")

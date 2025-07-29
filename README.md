@@ -2,7 +2,7 @@
 
 Spersonalizowany, dwukolorowy (czarno-czerwony) dashboard dla 7.5-calowego wyświetlacza e-papierowego Waveshare V2, zaprojektowany do działania na Raspberry Pi. Aplikacja integruje dane z wielu źródeł, aby stworzyć użyteczny i estetyczny ekran informacyjny.
 
- <!-- TODO: Wstaw zrzut ekranu -->
+<!-- TODO: Wstaw zrzut ekranu -->
 
 ---
 
@@ -10,6 +10,7 @@ Spersonalizowany, dwukolorowy (czarno-czerwony) dashboard dla 7.5-calowego wyśw
 
 - **Panel Czasu**: Wyświetla aktualną godzinę, datę, dzień tygodnia oraz godziny wschodu i zachodu słońca.
 - **Panel Pogody**: Pokazuje aktualne warunki pogodowe (temperatura, wilgotność, ciśnienie) na podstawie danych z najbliższej stacji synoptycznej IMGW. Automatycznie dobiera ikony dnia i nocy.
+- **Wskaźnik Nieaktualnych Danych**: Jeśli dane (np. pogodowe) nie mogą zostać odświeżone z powodu braku internetu, aplikacja wyświetli ostatnie znane dane wraz z ikoną ostrzegawczą.
 - **Panel Wydarzeń**: Listuje nadchodzące wydarzenia z Twojego osobistego Kalendarza Google.
 - **Panel Kalendarza**: Przedstawia widok całego miesiąca z zaznaczonymi weekendami, świętami państwowymi oraz dniami, w których masz zaplanowane wydarzenia.
 - **Nietypowe Święta**: Codziennie wyświetla jedno nietypowe święto z kalendarza "Days of the Year".
@@ -17,7 +18,7 @@ Spersonalizowany, dwukolorowy (czarno-czerwony) dashboard dla 7.5-calowego wyśw
   - **Pixel Shift**: Co godzinę obraz jest subtelnie przesuwany o kilka pikseli, aby zapobiegać wypalaniu się ekranu.
   - **Głębokie Odświeżenie**: Codziennie o 3:00 w nocy następuje pełne, głębokie odświeżenie całego ekranu, co dodatkowo konserwuje wyświetlacz.
 - **Elastyczność**: Możliwość uruchomienia z argumentami linii poleceń do debugowania i personalizacji.
-- **Automatyzacja**: Pełna obsługa uruchamiania jako usługa `systemd`, zapewniająca automatyczny start i niezawodne działanie.
+- **Automatyzacja**: Pełna obsługa uruchamiania jako usługa `systemd` zapewnia automatyczny start i niezawodne działanie.
 
 ---
 
@@ -28,8 +29,8 @@ Spersonalizowany, dwukolorowy (czarno-czerwony) dashboard dla 7.5-calowego wyśw
 Upewnij się, że masz zainstalowane `git` oraz środowisko Python. Włącz interfejsy SPI i I2C w `raspi-config`.
 
 ```bash
-sudo apt update
-sudo apt install git python3-pip python3-venv libopenjp2-7 -y
+sudo apt-get update
+sudo apt-get install git python3-pip python3-venv libopenjp2-7 libcairo2-dev -y
 sudo raspi-config
 # Wybierz 'Interface Options' -> 'SPI' -> 'Yes'
 # Wybierz 'Interface Options' -> 'I2C' -> 'Yes'
@@ -46,7 +47,8 @@ python3 -m venv .venv
 source .venv/bin/activate
 
 # Zainstaluj wymagane biblioteki
-pip install -r requirements.txt
+# Dla najlepszej wydajności renderowania ikon, zalecane jest zainstalowanie `cairosvg`
+pip install -r requirements.txt cairosvg
 ```
 
 ### Krok 3: Konfiguracja Aplikacji

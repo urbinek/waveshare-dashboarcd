@@ -2,7 +2,7 @@ import requests
 import json
 import os
 import logging
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from dateutil import tz
 # Astral to biblioteka do obliczeń astronomicznych, w tym wschodów/zachodów słońca
 try:
@@ -127,43 +127,57 @@ def _fetch_imgw_data(url):
     return response.json()
 
 def update_weather_data():
-    """Pobiera dane pogodowe z publicznego API IMGW i zapisuje do pliku JSON."""
-    if not hasattr(config, 'IMGW_STATION_NAME'):
-        logging.error("Brak zdefiniowanej nazwy stacji IMGW_STATION_NAME w pliku config.py.")
-        data_to_save = get_mock_data()
-    else:
-        try:
-            api_url = "https://danepubliczne.imgw.pl/api/data/synop"
-            all_stations_data = _fetch_imgw_data(api_url)
-
-            # Porównanie nazw stacji bez uwzględniania wielkości liter dla większej niezawodności
-            station_data = next((item for item in all_stations_data
-                                 if item["stacja"].upper() == config.IMGW_STATION_NAME.upper()),
-                                None)
-
-            if not station_data:
-                logging.error(f"Nie znaleziono danych dla stacji '{config.IMGW_STATION_NAME}' w odpowiedzi z API.")
-                data_to_save = get_mock_data()
-            else:
-                # --- Łączenie danych i zapisywanie ---
-                icon_path = _map_weather_to_icon(station_data)
-                sunrise, sunset = _get_sunrise_sunset()
-
-                data_to_save = {
-                    "icon": icon_path,
-                    "temp_real": station_data.get('temperatura'),
-                    "sunrise": sunrise,
-                    "sunset": sunset,
-                    "humidity": station_data.get('wilgotnosc_wzgledna'),
-                    "pressure": station_data.get('cisnienie')
-                }
-        except requests.exceptions.RequestException as e:
-            logging.error(f"Błąd podczas pobierania danych z API IMGW: {e}")
-            data_to_save = get_mock_data()
-        except Exception as e:
-            logging.error(f"Wystąpił nieoczekiwany błąd w module pogody: {e}", exc_info=True)
-            data_to_save = get_mock_data()
-
+    """
+    Pobiera dane pogodowe z API IMGW. W przypadku błędu sieciowego,
+    aplikacja będzie korzystać z ostatnich pomyślnie pobranych danych (cache).
+    Nowe dane są zapisywane do pliku JSON tylko po pomyślnym pobraniu.
+    """
     file_path = os.path.join(path_manager.CACHE_DIR, 'weather.json')
-    with open(file_path, 'w', encoding='utf-8') as f:
-        json.dump(data_to_save, f, ensure_ascii=False, indent=4)
+
+    if not hasattr(config, 'IMGW_STATION_NAME') or not config.IMGW_STATION_NAME:
+        logging.error("Brak zdefiniowanej nazwy stacji IMGW_STATION_NAME w pliku config.py.")
+        # Jeśli nie ma konfiguracji, zapisz plik z danymi zastępczymi, aby uniknąć błędów
+        with open(file_path, 'w', encoding='utf-8') as f:
+            json.dump(get_mock_data(), f, ensure_ascii=False, indent=4)
+        return
+
+    try:
+        api_url = "https://danepubliczne.imgw.pl/api/data/synop"
+        all_stations_data = _fetch_imgw_data(api_url)
+
+        station_data = next((item for item in all_stations_data
+                             if item["stacja"].upper() == config.IMGW_STATION_NAME.upper()),
+                            None)
+
+        if not station_data:
+            # Logujemy błąd, ale nie nadpisujemy starych danych.
+            # Jeśli stacja zniknie z API, chcemy zachować ostatnie znane dane.
+            logging.error(f"Nie znaleziono danych dla stacji '{config.IMGW_STATION_NAME}' w odpowiedzi z API. Używam danych z cache.")
+            return
+
+        # --- Pomyślnie pobrano dane, przetwarzamy i zapisujemy ---
+        icon_path = _map_weather_to_icon(station_data)
+        sunrise, sunset = _get_sunrise_sunset()
+
+        data_to_save = {
+            "icon": icon_path,
+            "temp_real": station_data.get('temperatura'),
+            "sunrise": sunrise,
+            "sunset": sunset,
+            "humidity": station_data.get('wilgotnosc_wzgledna'),
+            "pressure": station_data.get('cisnienie'),
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+
+        with open(file_path, 'w', encoding='utf-8') as f:
+            json.dump(data_to_save, f, ensure_ascii=False, indent=4)
+        logging.info("Pomyślnie zaktualizowano i zapisano dane pogodowe.")
+
+    except requests.exceptions.RequestException as e:
+        # W przypadku błędu sieciowego, logujemy ostrzeżenie i celowo NIE robimy nic więcej.
+        # Aplikacja automatycznie użyje ostatnich poprawnie zapisanych danych z pliku weather.json.
+        logging.warning(f"Błąd sieci podczas pobierania danych pogodowych: {e}. Aplikacja użyje danych z pamięci podręcznej.")
+
+    except Exception as e:
+        # W przypadku innych, nieoczekiwanych błędów, również używamy danych z cache.
+        logging.error(f"Wystąpił nieoczekiwany błąd w module pogody: {e}. Aplikacja użyje danych z pamięci podręcznej.", exc_info=True)

@@ -10,7 +10,10 @@ Ten moduł odpowiada za pobieranie, przetwarzanie i dostarczanie danych pogodowy
   - Na podstawie danych o zachmurzeniu i opadach, moduł wybiera odpowiednią ikonę pogody.
   - Automatycznie rozróżnia ikony dzienne i nocne na podstawie godzin wschodu/zachodu słońca.
   - Posiada mechanizm awaryjny – jeśli preferowana ikona (np. dzienna) nie istnieje w zasobach, spróbuje użyć jej nocnego odpowiednika.
-- **Odporność na Błędy**: W przypadku problemów z API IMGW lub błędów przetwarzania, moduł dostarcza dane zastępcze, aby aplikacja mogła działać dalej. Posiada również mechanizm ponawiania prób przy problemach z siecią.
+- **Odporność na Błędy**: Moduł został zaprojektowany z myślą o maksymalnej niezawodności.
+  - **Ponawianie Prób**: W przypadku przejściowych problemów z siecią, próba pobrania danych jest automatycznie ponawiana kilkukrotnie.
+  - **Inteligentny Cache**: Jeśli pobranie nowych danych nie powiedzie się (np. z powodu braku połączenia z internetem lub błędu po stronie API), moduł **nie nadpisuje istniejących danych**. Aplikacja będzie kontynuować wyświetlanie ostatnich pomyślnie pobranych informacji, zamiast pokazywać puste pola. Dane zastępcze (`--`) pojawią się tylko wtedy, gdy aplikacja jest uruchamiana po raz pierwszy bez dostępu do sieci.
+- **Wskaźnik Nieaktualnych Danych**: Moduł zapisuje znacznik czasu (`timestamp`) każdej udanej aktualizacji. Pozwala to interfejsowi użytkownika na wyświetlenie specjalnej ikony ostrzegawczej, gdy wyświetlane dane są nieaktualne.
 
 ## Konfiguracja
 

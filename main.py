@@ -75,11 +75,11 @@ def time_update_job(layout_config, draw_borders_flag=False):
     if now.hour == 21 and now.minute == 37:
         logging.info("Aktywacja Easter Egga...")
         try:
-            startup_screens.display_easter_egg(display.EPD_LOCK, layout_config, flip=should_flip)
+            startup_screens.display_easter_egg(display.EPD_LOCK, flip=should_flip)
         except Exception as e:
             logging.error(f"Błąd podczas wyświetlania Easter Egga: {e}", exc_info=True)
     else:
-        logging.info("Uruchamianie częściowej aktualizacji ekranu (tylko czas)...")
+        logging.debug("Uruchamianie częściowej aktualizacji ekranu (tylko czas)...")
         try:
             # Aktualizujemy tylko plik z czasem, reszta zostaje bez zmian
             time.update_time_data()
@@ -143,6 +143,12 @@ def main():
     if not args.verbose:
         # Ukryj zbyt gadatliwe logi z biblioteki Google, chyba że jest włączony tryb --verbose
         logging.getLogger('googleapiclient.discovery_cache').setLevel(logging.ERROR)
+
+    if args.service and not args.verbose:
+        logging.info("Tryb --service aktywny, ograniczanie gadatliwych logów.")
+        # Wyciszanie logów z apscheduler, które informują o każdym uruchomieniu zadania
+        logging.getLogger('apscheduler.executors.default').setLevel(logging.WARNING)
+        logging.getLogger('apscheduler.scheduler').setLevel(logging.WARNING)
 
     logging.info("--- Inicjalizacja Dashboardu Waveshare ---")
 
