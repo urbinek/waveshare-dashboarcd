@@ -9,3 +9,4 @@ waveshare-epaper
 cairosvg
 filelock
 astral
+PyYAML
