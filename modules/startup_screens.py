@@ -6,7 +6,7 @@ import config
 from modules import drawing_utils
 
 try:
-    from waveshare_epaper import epd7in5b_V2
+    from waveshare_epd import epd7in5b_V2
     EPD_WIDTH = epd7in5b_V2.EPD_WIDTH
     EPD_HEIGHT = epd7in5b_V2.EPD_HEIGHT
 except (ImportError, RuntimeError):

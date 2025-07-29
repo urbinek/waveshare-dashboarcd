@@ -12,15 +12,7 @@ import config
 from modules import path_manager, drawing_utils
 from modules.panels import time_panel, weather_panel, events_panel, calendar_panel
 
-# --- Konfiguracja importu biblioteki wyświetlacza ---
-try:
-    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    lib_path = os.path.join(project_root, 'lib')
-    sys.path.insert(0, lib_path)
-    from waveshare_epaper import epd7in5b_V2
-except ImportError:
-    logging.critical(f"Nie można zaimportować biblioteki 'waveshare_epaper'. Upewnij się, że program jest uruchomiony na Raspberry Pi i biblioteka jest w '{lib_path}'.")
-    sys.exit(1)
+from waveshare_epd import epd7in5b_V2
 
 EPD_WIDTH = epd7in5b_V2.EPD_WIDTH
 EPD_HEIGHT = epd7in5b_V2.EPD_HEIGHT

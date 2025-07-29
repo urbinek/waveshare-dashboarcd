@@ -1,11 +1,8 @@
 import logging
 import os
 import sys
-try:
-    import yaml
-except ImportError:
-    logging.critical("Biblioteka 'PyYAML' nie jest zainstalowana. Uruchom 'pip install PyYAML'.")
-    sys.exit(1)
+import yaml
+
 
 LAYOUT_FILE_PATH = 'layout.yaml'
 
