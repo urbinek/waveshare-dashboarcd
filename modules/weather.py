@@ -20,8 +20,10 @@ from modules.network_utils import retry
 def get_mock_data():
     """Zwraca dane zastępcze w przypadku błędu."""
     logging.warning("Używam zastępczych danych pogodowych.")
+    # Zwracaj od razu pełną, absolutną ścieżkę do ikony zastępczej.
+    icon_path = os.path.join(config.WEATHER_ICONS_PATH, config.DEFAULT_WEATHER_ICON_PATH)
     return {
-        "icon": config.DEFAULT_WEATHER_ICON_PATH,
+        "icon": icon_path,
         "temp_real": "--",
         "sunrise": "--:--",
         "sunset": "--:--",
@@ -75,7 +77,11 @@ def _map_weather_to_icon(station_data):
     Mapuje dane ze stacji na odpowiednią nazwę pliku ikony, używając systemu opartego na regułach.
     Poprawnie obsługuje rozróżnienie ikon dziennych i nocnych.
     """
-    fallback_icon_path = config.DEFAULT_WEATHER_ICON_PATH
+    # Zbuduj pełną, absolutną ścieżkę do ikony zastępczej, która będzie używana w przypadku błędu lub braku dopasowania.
+    # config.WEATHER_ICONS_PATH jest mapowany na ścieżkę w cache'u przez main.py.
+    # config.DEFAULT_WEATHER_ICON_PATH to ścieżka względna wewnątrz katalogu ikon.
+    # Połączenie ich gwarantuje, że zawsze będziemy mieli poprawną, absolutną ścieżkę.
+    fallback_icon_path = os.path.join(config.WEATHER_ICONS_PATH, config.DEFAULT_WEATHER_ICON_PATH)
 
     try:
         # --- Krok 1: Ustal, czy jest dzień czy noc, aby wybrać poprawny prefiks ikony ---

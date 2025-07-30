@@ -41,6 +41,8 @@ def display_splash_screen(epd_lock, flip=False):
         img_x = (left_box_rect[2] - waveshare_logo.width) // 2
         img_y = (left_box_rect[3] - waveshare_logo.height) // 2
         if waveshare_logo:
+            img_x = (left_box_rect[2] - waveshare_logo.width) // 2
+            img_y = (left_box_rect[3] - waveshare_logo.height) // 2
             # Tworzymy 1-bitową maskę z kanału alfa logo. Zapewnia to, że każda nieprzezroczysta
             # część logo staje się częścią kształtu, unikając ditheringu (rozpraszania) szarości.
             mask = waveshare_logo.getchannel('A').point(lambda i: i > 128, '1')

@@ -35,26 +35,43 @@ def draw_panel(black_image, draw_black, weather_data, fonts, panel_config):
     y1 += y_offset
     y2 += y_offset
 
-    # --- Lewa strona: Ikona pogody ---
+    # --- Definicja obszarów ---
+    # Dzielimy panel na górny obszar (ikona + temperatura) i dolny (wilgotność, ciśnienie).
+    bottom_area_height = 40  # Zmniejszono, aby dać więcej miejsca na ikonę
+    top_area_y1 = y1
+    top_area_y2 = y2 - bottom_area_height
+    top_area_center_y = top_area_y1 + (top_area_y2 - top_area_y1) // 2
+
+    # --- Górny obszar: Ikona i Temperatura (traktowane jako jeden blok) ---
+
+    # 1. Pobierz zasoby i oblicz ich wymiary
     icon_path = weather_data.get('icon')
-    if icon_path:
-        icon_img = drawing_utils.render_svg_with_cache(icon_path, size=120)
-        if icon_img:
-            # Wycentrowanie ikony w pionie
-            icon_y = y1 + (y2 - y1 - icon_img.height) // 2
-            # Użycie maski (kanału alpha) do poprawnego wklejenia ikony bez czarnego tła
-            black_image.paste(icon_img, (x1 + 20, icon_y), mask=icon_img)
-
-    # --- Prawa strona: Temperatura i pozostałe dane ---
-    right_column_x = x1 + 160  # Pozycja startowa dla prawej kolumny
-
-    # Rysowanie temperatury
+    icon_img = drawing_utils.render_svg_with_cache(icon_path, size=144) if icon_path else None # Powiększono ikonę o 20%
     temp_text = f"{weather_data.get('temp_real', '--')}°"
-    draw_black.text((right_column_x, y1 + 15), temp_text, font=fonts['weather_temp'], fill=0, anchor="lt")
+    temp_font = fonts['weather_temp']
+
+    # 2. Oblicz łączną szerokość bloku, aby wycentrować go w poziomie
+    gap_between_elements = -30
+    icon_width = icon_img.width if icon_img else 0
+    temp_width = draw_black.textlength(temp_text, font=temp_font)
+    total_content_width = icon_width + gap_between_elements + temp_width
+    content_start_x = x1 + ((x2 - x1) - total_content_width) // 2
+
+    # 3. Rysuj elementy, wyrównując je w pionie do środka obszaru
+    current_x = content_start_x
+    if icon_img:
+        icon_y = top_area_center_y - icon_img.height // 2
+        # Użycie kanału alfa obrazu jako maski pozwoli na dithering (skalę szarości).
+        # To przywraca detale w ikonach kosztem nieco jaśniejszego wyglądu.
+        black_image.paste(icon_img, (int(current_x), icon_y), mask=icon_img)
+        current_x += icon_width + gap_between_elements
+
+    # Użycie anchor="lm" (left-middle) zapewnia idealne wyrównanie pionowe tekstu
+    draw_black.text((current_x, top_area_center_y), temp_text, font=temp_font, fill=0, anchor="lm")
 
     # --- Rysowanie wilgotności i ciśnienia w jednej linii z ikonami ---
     icon_size = 36  # Zwiększono z 24
-    text_y_pos = y2 - 30
+    text_y_pos = top_area_y2 + (bottom_area_height // 2) # Wyśrodkowanie w dolnym obszarze
 
     # --- Centrowanie bloku wilgotności i ciśnienia ---
     humidity_icon = drawing_utils.render_svg_with_cache(config.ICON_HUMIDITY_PATH, size=icon_size)
@@ -82,6 +99,7 @@ def draw_panel(black_image, draw_black, weather_data, fonts, panel_config):
 
     # Wilgotność
     if humidity_icon:
+        # Wklejenie ikony z użyciem jej własnego kanału alfa jako maski
         black_image.paste(humidity_icon, (int(current_x), int(text_y_pos - icon_size // 2)), mask=humidity_icon)
         current_x += humidity_icon.width + icon_text_gap
     draw_black.text((current_x, text_y_pos), humidity_text, font=fonts['small'], fill=0, anchor="lm")
@@ -89,6 +107,7 @@ def draw_panel(black_image, draw_black, weather_data, fonts, panel_config):
 
     # Ciśnienie
     if pressure_icon:
+        # Wklejenie ikony z użyciem jej własnego kanału alfa jako maski
         black_image.paste(pressure_icon, (int(current_x), int(text_y_pos - icon_size // 2)), mask=pressure_icon)
         current_x += pressure_icon.width + icon_text_gap
     draw_black.text((current_x, text_y_pos), pressure_text, font=fonts['small'], fill=0, anchor="lm")
@@ -109,6 +128,7 @@ def draw_panel(black_image, draw_black, weather_data, fonts, panel_config):
                 sync_icon = drawing_utils.render_svg_with_cache(config.ICON_SYNC_PROBLEM_PATH, size=sync_icon_size)
                 icon_pos_x = x2 - sync_icon.width - 15
                 icon_pos_y = y1 + 15
+                # Wklejenie ikony z użyciem jej własnego kanału alfa jako maski
                 black_image.paste(sync_icon, (icon_pos_x, icon_pos_y), mask=sync_icon)
         except (parser.ParserError, TypeError) as e:
             logging.warning(f"Nie można sparsować znacznika czasu danych pogodowych ('{timestamp_str}'): {e}")
