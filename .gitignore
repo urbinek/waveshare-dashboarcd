@@ -7,3 +7,6 @@ token.json
 credentials.json
 config.py
 sync.sh
+
+# Pliki logów
+*.log
