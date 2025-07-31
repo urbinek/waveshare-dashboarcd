@@ -88,12 +88,21 @@ def time_update_job(layout_config, draw_borders_flag=False):
             logging.error(f"Błąd podczas częściowej aktualizacji: {e}", exc_info=True)
 
 def clear_cache_directory():
-    """Całkowicie czyści i tworzy na nowo katalog tymczasowy."""
+    """Czyści zawartość katalogu tymczasowego, zachowując sam katalog."""
     cache_dir = path_manager.CACHE_DIR
-    logging.info(f"Czyszczenie katalogu tymczasowego: {cache_dir}")
+    logging.info(f"Czyszczenie zawartości katalogu tymczasowego: {cache_dir}")
     if os.path.exists(cache_dir):
-        shutil.rmtree(cache_dir)
-    os.makedirs(cache_dir, exist_ok=True)
+        for filename in os.listdir(cache_dir):
+            file_path = os.path.join(cache_dir, filename)
+            try:
+                if os.path.isfile(file_path) or os.path.islink(file_path):
+                    os.unlink(file_path)
+                elif os.path.isdir(file_path):
+                    shutil.rmtree(file_path)
+            except Exception as e:
+                logging.error(f"Błąd podczas usuwania {file_path}: {e}")
+    else:
+        os.makedirs(cache_dir, exist_ok=True)
     logging.info("Katalog tymczasowy wyczyszczony i gotowy do użycia.")
 
 def copy_assets_to_tmp():
