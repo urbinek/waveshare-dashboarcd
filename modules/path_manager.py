@@ -5,7 +5,7 @@ import logging
 import config
 
 def _find_best_base_dir():
-    preferred_dirs = [f'/dev/shm', '/tmp']
+    preferred_dirs = [f'/tmp', '/opt']
     for dir_path in preferred_dirs:
         if os.path.isdir(dir_path) and os.access(dir_path, os.W_OK):
             logging.debug(f"Znaleziono odpowiedni katalog bazowy w RAM: {dir_path}")
