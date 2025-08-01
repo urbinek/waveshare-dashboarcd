@@ -10,3 +10,6 @@ sync.sh
 
 # Pliki logów
 *.log
+
+# Pliki Gemini
+GEMINI.md
