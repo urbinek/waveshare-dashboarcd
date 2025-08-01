@@ -48,16 +48,23 @@ def load_fonts():
 def render_svg_with_cache(svg_path, size):
     """
     Renderuje plik SVG do obiektu obrazu Pillow, z agresywnym cachingiem.
+    Loguje informację o renderowaniu tylko przy pierwszym wczytaniu danego zasobu (cache miss).
     Kluczem cache'a jest kombinacja ścieżki pliku i rozmiaru.
     Zwraca obiekt obrazu Pillow w trybie RGBA.
     """
-    if not svg_path or not os.path.exists(svg_path):
-        logging.warning(f"Plik SVG nie istnieje: {svg_path}")
+    if not svg_path:
+        logging.warning("Wywołano render_svg_with_cache z pustą ścieżką (svg_path=None).")
         return None
 
-    try:
-        logging.debug(f"Renderowanie SVG (cache miss): {os.path.basename(svg_path)} (rozmiar: {size})")
+    if not os.path.exists(svg_path):
+        logging.error(f"Plik SVG nie istnieje pod ścieżką: {svg_path}")
+        return None
 
+    # Ten log pojawi się tylko wtedy, gdy zasób nie jest w cache (cache miss).
+    # Zmieniamy na DEBUG, aby nie zaśmiecać logów. Specjalne logowanie będzie w panelu.
+    logging.debug(f"Renderowanie SVG (cache miss): {svg_path}")
+
+    try:
         if SVG_RENDERER == 'cairosvg':
             png_data = svg2png(url=svg_path, output_width=size, output_height=size)
             in_memory_file = io.BytesIO(png_data)
@@ -68,7 +75,6 @@ def render_svg_with_cache(svg_path, size):
             renderPM.drawToFile(drawing, in_memory_file, fmt="PNG", bg=0xFFFFFF, configPIL={'transparent': 1})
             in_memory_file.seek(0)
             image = Image.open(in_memory_file).resize((size, size), Image.Resampling.LANCZOS).convert("RGBA")
-
         return image
     except Exception as e:
         logging.error(f"Nie udało się zrenderować SVG '{svg_path}' za pomocą {SVG_RENDERER}: {e}")

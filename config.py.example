@@ -1,37 +1,36 @@
-#
-# Przykładowy plik konfiguracyjny.
+# =================================================================
+# ===              PRZYKŁADOWY PLIK KONFIGURACYJNY              ===
+# =================================================================
 # Skopiuj ten plik do `config.py` i dostosuj wartości do swoich potrzeb.
 # `cp config.py.example config.py`
 #
+# UWAGA: Ten plik zawiera tylko statyczne dane i nazwy zasobów.
+# Pełne ścieżki do zasobów (czcionek, ikon) są budowane dynamicznie
+# w czasie uruchomienia i wskazują na katalog w pamięci RAM.
 
-# --- Ścieżki do plików ---
-# Czcionki
-FONT_ROBOTO_MONO_BOLD = "assets/fonts/RobotoMono-Bold.ttf"
-FONT_ROBOTO_MONO_REGULAR = "assets/fonts/RobotoMono-Regular.ttf"
+# --- Konfiguracja lokalizacji i stacji pogodowej ---
+IMGW_STATION_NAME = "KATOWICE"  # Nazwa stacji IMGW (np. "WARSZAWA-BIELANY", "KRAKÓW-BALICE")
+LOCATION_LAT = 50.2585         # Twoja szerokość geograficzna (do wschodów/zachodów słońca)
+LOCATION_LON = 19.0218         # Twoja długość geograficzna
 
-# Ikony i obrazy
-WEATHER_ICONS_PATH = "assets/icons/weather"
-DEFAULT_WEATHER_ICON_PATH = "assets/icons/mdi/help-circle-outline.svg"
-SPLASH_WAVESHARE_LOGO_PATH = "assets/logos/waveshare.svg"
-SPLASH_CIRCLE_LOGO_PATH = "assets/logos/circle_logo.svg"
-EASTER_EGG_IMAGE_PATH = 'assets/2137/papaj.jpg'
+# --- Konfiguracja Airly API ---
+# Zarejestruj się na https://developer.airly.org/en/ i uzyskaj darmowy klucz API.
+AIRLY_API_KEY = "TWÓJ_KLUCZ_API_AIRLY"
 
-# Pliki poświadczeń Google
+# --- Konfiguracja Google Calendar ---
+# Nazwy plików poświadczeń Google (powinny znajdować się w głównym katalogu projektu)
 GOOGLE_CREDS_FILE = 'credentials.json'
 GOOGLE_TOKEN_FILE = 'token.json'
 
-# --- Konfiguracja modułów ---
-# Pogoda
-IMGW_STATION_NAME = "KATOWICE"  # Nazwa stacji IMGW
-LOCATION_LAT = 50.25            # Twoja szerokość geograficzna
-LOCATION_LON = 19.0             # Twoja długość geograficzna
-
-# Kalendarz Google
+# ID kalendarzy, które mają być synchronizowane.
+# ID kalendarza znajdziesz w jego ustawieniach w interfejsie webowym.
 GOOGLE_CALENDAR_IDS = {
     'personal': 'primary',
     'holidays': 'pl.polish#holiday@group.v.calendar.google.com',
-    'unusual': 'g2gbf4u5jc2s82c98614t40d2g@group.calendar.google.com',  # Kalendarz nietypowych świąt
+    'unusual': 'g2gbf4u5jc2s82c98614t40d2g@group.calendar.google.com', # Kalendarz nietypowych świąt
 }
+
+# Maksymalna liczba nadchodzących wydarzeń do wyświetlenia
 MAX_UPCOMING_EVENTS = 5
 
 # --- Ustawienia Aplikacji ---
@@ -40,3 +39,27 @@ CACHE_DIR_NAME = "waveshare-dashboard-cache"
 
 # Obróć obraz o 180 stopni. Przydatne, jeśli wyświetlacz jest zamontowany "do góry nogami".
 FLIP_DISPLAY = False
+
+# =================================================================
+# ===              KONFIGURACJA ZASOBÓW (ASSETÓW)               ===
+# =================================================================
+# Poniższe zmienne definiują nazwy plików i katalogów wewnątrz `assets/`.
+# Zazwyczaj nie ma potrzeby ich zmieniać.
+
+# Podkatalogi wewnątrz 'assets'
+FONT_DIR = 'fonts'
+ICON_DIR = 'icons'
+IMG_DIR = 'img'
+
+# Nazwy plików czcionek
+FONT_ROBOTO_MONO_REGULAR_FILENAME = 'RobotoMono-Regular.ttf'
+FONT_ROBOTO_MONO_BOLD_FILENAME = 'RobotoMono-Bold.ttf'
+FONT_EASTER_EGG_FILENAME = 'RobotoMono-Bold.ttf'
+
+# Podkatalogi ikon
+ICON_FEATHER_SUBDIR = 'icons/feather'
+
+# Nazwy plików obrazów
+SPLASH_WAVESHARE_LOGO_FILENAME = 'waveshare_logo.svg'
+SPLASH_CIRCLE_LOGO_FILENAME = 'circle_logo.svg'
+EASTER_EGG_IMAGE_FILENAME = 'easter_egg.png'

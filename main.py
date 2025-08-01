@@ -6,8 +6,8 @@ import shutil
 import sys
 import datetime
 from apscheduler.schedulers.blocking import BlockingScheduler
+from modules import time, weather, google_calendar, display, path_manager, startup_screens, drawing_utils, layout, asset_manager, airly
 import config
-from modules import time, weather, google_calendar, display, path_manager, startup_screens, drawing_utils, layout
 
 # --- Niestandardowy Formater Logów ---
 class CenteredFormatter(logging.Formatter):
@@ -29,6 +29,7 @@ should_flip = False
 def update_all_data_sources(layout_config):
     """Uruchamia wszystkie moduły zbierające dane w odpowiedniej kolejności."""
     logging.info("Rozpoczynanie aktualizacji wszystkich źródeł danych...")
+    airly.update_airly_data() # Pobierz dane Airly PRZED danymi pogodowymi
     time.update_time_data()
     weather.update_weather_data()
     google_calendar.update_calendar_data()
@@ -87,49 +88,6 @@ def time_update_job(layout_config, draw_borders_flag=False):
         except Exception as e:
             logging.error(f"Błąd podczas częściowej aktualizacji: {e}", exc_info=True)
 
-def clear_cache_directory():
-    """Czyści zawartość katalogu tymczasowego, zachowując sam katalog."""
-    cache_dir = path_manager.CACHE_DIR
-    logging.info(f"Czyszczenie zawartości katalogu tymczasowego: {cache_dir}")
-    if os.path.exists(cache_dir):
-        for filename in os.listdir(cache_dir):
-            file_path = os.path.join(cache_dir, filename)
-            try:
-                if os.path.isfile(file_path) or os.path.islink(file_path):
-                    os.unlink(file_path)
-                elif os.path.isdir(file_path):
-                    shutil.rmtree(file_path)
-            except Exception as e:
-                logging.error(f"Błąd podczas usuwania {file_path}: {e}")
-    else:
-        os.makedirs(cache_dir, exist_ok=True)
-    logging.info("Katalog tymczasowy wyczyszczony i gotowy do użycia.")
-
-def copy_assets_to_tmp():
-    """Kopiuje zasoby do katalogu tymczasowego w pamięci RAM."""
-    source_dir = "assets"
-    dest_dir = os.path.join(path_manager.CACHE_DIR, source_dir)
-    logging.info(f"Kopiowanie zasobów z '{source_dir}' do '{dest_dir}'...")
-    if not os.path.isdir(source_dir):
-        logging.critical(f"Katalog źródłowy '{source_dir}' nie istnieje. Aplikacja nie może kontynuować.")
-        sys.exit(1)
-    if os.path.exists(dest_dir):
-        shutil.rmtree(dest_dir)
-    shutil.copytree(source_dir, dest_dir, dirs_exist_ok=True)
-
-def remap_config_paths_to_cache():
-    """Aktualizuje ścieżki w 'config', aby wskazywały na zasoby w cache'u."""
-    logging.info("Mapowanie ścieżek zasobów na katalog tymczasowy...")
-    for attr_name in dir(config):
-        if not attr_name.isupper() or not isinstance(getattr(config, attr_name), str):
-            continue
-        if attr_name.endswith(('_PATH', '_FILE', '_DIR')):
-            original_path = getattr(config, attr_name)
-            if original_path.startswith('assets/'):
-                new_path = os.path.join(path_manager.CACHE_DIR, original_path)
-                setattr(config, attr_name, new_path)
-                logging.debug(f"Zmapowano '{attr_name}': '{original_path}' -> '{new_path}'")
-
 def main():
     """Główna funkcja aplikacji."""
     parser = argparse.ArgumentParser(description="Waveshare E-Paper Dashboard")
@@ -166,10 +124,24 @@ def main():
         logging.critical("Nie udało się wczytać konfiguracji layoutu. Aplikacja nie może kontynuować.")
         sys.exit(1)
 
+    try:
+        # 1. Utwórz katalog cache, jeśli nie istnieje
+        os.makedirs(path_manager.CACHE_DIR, exist_ok=True)
 
-    clear_cache_directory()
-    copy_assets_to_tmp()
-    remap_config_paths_to_cache()
+        # 2. Skopiuj wszystkie zasoby do katalogu cache w RAM
+        asset_manager.sync_assets_to_cache()
+
+        # 3. Zbuduj i ustaw dynamiczne ścieżki w module config
+        asset_manager.initialize_runtime_paths()
+
+        # 4. Sprawdź, czy wszystkie krytyczne zasoby faktycznie istnieją
+        if not asset_manager.verify_assets():
+            logging.critical("Weryfikacja zasobów nie powiodła się. Sprawdź powyższe logi, aby zobaczyć, których plików brakuje.")
+            sys.exit(1)
+
+    except Exception as e:
+        logging.critical(f"Błąd krytyczny podczas inicjalizacji zasobów: {e}. Zamykanie.", exc_info=True)
+        sys.exit(1)
 
     # Ustawienie globalnej zmiennej na podstawie konfiguracji i flagi
     global should_flip

@@ -15,8 +15,12 @@ except (ImportError, RuntimeError):
 
 def display_splash_screen(epd_lock, flip=False):
     """Wyświetla ekran powitalny (splash screen) podczas inicjalizacji."""
-    if not os.path.exists(config.SPLASH_WAVESHARE_LOGO_PATH) or not os.path.exists(config.SPLASH_CIRCLE_LOGO_PATH):
-        logging.error("Nie znaleziono plików logo dla ekranu powitalnego. Pomijanie...")
+    if not os.path.exists(config.SPLASH_WAVESHARE_LOGO_PATH):
+        logging.error(f"Nie znaleziono pliku logo dla ekranu powitalnego: {config.SPLASH_WAVESHARE_LOGO_PATH}! Pomijanie...")
+        return
+
+    if not os.path.exists(config.SPLASH_CIRCLE_LOGO_PATH):
+        logging.error(f"Nie znaleziono pliku logo dla ekranu powitalnego: {config.SPLASH_CIRCLE_LOGO_PATH}! Pomijanie...")
         return
 
     try:

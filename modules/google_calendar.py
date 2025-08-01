@@ -209,9 +209,14 @@ def build_calendar_grid():
 def update_calendar_data():
     """Uruchamia pełną aktualizację wszystkich danych kalendarza."""
     logging.info("Uruchamianie pełnej aktualizacji danych kalendarza...")
-    update_holidays()
-    update_personal_events()
-    build_calendar_grid()
+    try:
+        update_holidays()
+        update_personal_events()
+        build_calendar_grid()
+    except (socket.timeout, ssl.SSLError, TransportError, ConnectionResetError, HttpError) as e:
+        logging.warning(f"Błąd sieci podczas aktualizacji danych kalendarza: {e}. Aplikacja użyje danych z pamięci podręcznej.")
+    except Exception as e:
+        logging.error(f"Wystąpił nieoczekiwany błąd w module kalendarza: {e}. Aplikacja użyje danych z pamięci podręcznej.", exc_info=True)
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)

@@ -19,10 +19,9 @@ panels:
     rect: [0, 160, 400, 480]
     y_offset: 0
 
-  weather:
+  weather_and_air:
     enabled: true
     rect: [400, 0, 800, 160]
-    y_offset: 0
 
   calendar:
     enabled: true

@@ -20,10 +20,8 @@ from modules.network_utils import retry
 def get_mock_data():
     """Zwraca dane zastępcze w przypadku błędu."""
     logging.warning("Używam zastępczych danych pogodowych.")
-    # Zwracaj od razu pełną, absolutną ścieżkę do ikony zastępczej.
-    icon_path = os.path.join(config.WEATHER_ICONS_PATH, config.DEFAULT_WEATHER_ICON_PATH)
     return {
-        "icon": icon_path,
+        "icon": config.ICON_SYNC_PROBLEM_PATH,
         "temp_real": "--",
         "sunrise": "--:--",
         "sunset": "--:--",
@@ -52,77 +50,91 @@ def _get_sunrise_sunset():
         logging.error(f"Błąd podczas obliczania czasu wschodu/zachodu słońca: {e}")
         return "--:--", "--:--"
 
-# --- Nowa, oparta na regułach struktura do mapowania pogody na ikony ---
-# Lista reguł jest oceniana od góry do dołu. Pierwsza pasująca reguła określa ikonę.
-# Każda reguła to krotka: (lambda warunku, podstawowa nazwa ikony).
-# Lambda otrzymuje słownik station_data i powinna zwrócić True, jeśli warunek jest spełniony.
-# Podstawowa nazwa ikony to rdzeń nazwy pliku, bez prefiksu dnia/nocy i rozszerzenia.
+# --- Nowy silnik reguł wyboru ikon pogody (zestaw Feather) ---
+
+# Inicjalizujemy słowniki jako None. Zostaną wypełnione przy pierwszym użyciu.
+DAY_ICONS = None
+NIGHT_ICONS = None
+
+def _initialize_icon_dictionaries():
+    """Wypełnia słowniki ikon, gdy ścieżki w config są już dostępne."""
+    global DAY_ICONS, NIGHT_ICONS
+    # Sprawdź, czy słowniki zostały już zainicjalizowane
+    if DAY_ICONS is not None:
+        return
+
+    logging.debug("Pierwsze użycie: inicjalizowanie słowników ikon pogody...")
+    DAY_ICONS = {
+        'clear': os.path.join(config.ICON_FEATHER_PATH, 'sun.svg'),
+        'cloudy': os.path.join(config.ICON_FEATHER_PATH, 'cloud.svg'),
+        'rain': os.path.join(config.ICON_FEATHER_PATH, 'cloud-rain.svg'),
+        'drizzle': os.path.join(config.ICON_FEATHER_PATH, 'cloud-drizzle.svg'),
+        'snow': os.path.join(config.ICON_FEATHER_PATH, 'cloud-snow.svg'),
+        'storm': os.path.join(config.ICON_FEATHER_PATH, 'cloud-lightning.svg'),
+        'fog': os.path.join(config.ICON_FEATHER_PATH, 'align-justify.svg'), # Metafora mgły
+    }
+
+    NIGHT_ICONS = {
+        'clear': os.path.join(config.ICON_FEATHER_PATH, 'moon.svg'),
+        'cloudy': os.path.join(config.ICON_FEATHER_PATH, 'cloud.svg'),
+        'rain': os.path.join(config.ICON_FEATHER_PATH, 'cloud-rain.svg'),
+        'drizzle': os.path.join(config.ICON_FEATHER_PATH, 'cloud-drizzle.svg'),
+        'snow': os.path.join(config.ICON_FEATHER_PATH, 'cloud-snow.svg'),
+        'storm': os.path.join(config.ICON_FEATHER_PATH, 'cloud-lightning.svg'),
+        'fog': os.path.join(config.ICON_FEATHER_PATH, 'align-justify.svg'),
+    }
+
+# Reguły są sprawdzane od góry do dołu. Pierwsza pasująca reguła wyznacza ikonę.
+# 'condition' to funkcja lambda, która przyjmuje dane pogodowe i zwraca True/False.
+# 'icon_key' to klucz do słowników DAY_ICONS i NIGHT_ICONS.
+# Klucze ('zjawisko', 'suma_opadu', 'zachmurzenie_ogolne') są oparte na API IMGW.
 WEATHER_RULES = [
-    # --- Reguły dla opadów (najwyższy priorytet) ---
-    # TODO: Można tu dodać bardziej szczegółowe reguły (np. dla mgły, burzy), jeśli API dostarczy odpowiednie dane.
-    (lambda d: float(d.get('suma_opadu', 0)) > 0 and float(d.get('temperatura', 1)) <= 0, 'n3z70'),  # Duże opady śniegu
-    (lambda d: float(d.get('suma_opadu', 0)) > 0, 'n2z70'),                                          # Duży deszcz (domyślne dla innych opadów)
+    # Zjawiska ekstremalne mają najwyższy priorytet
+    {'condition': lambda data: 'burza' in data.get('zjawisko', '').lower(), 'icon_key': 'storm'},
+    {'condition': lambda data: 'mgła' in data.get('zjawisko', '').lower(), 'icon_key': 'fog'},
 
-    # --- Reguły dla zachmurzenia (gdy brak opadów) ---
-    (lambda d: float(d.get('zachmurzenie_ogolne', 8)) <= 2, 'n0z00'),                                # Bezchmurnie
-    (lambda d: float(d.get('zachmurzenie_ogolne', 8)) <= 5, 'n0z50'),                                # Częściowe zachmurzenie
-    (lambda d: float(d.get('zachmurzenie_ogolne', 8)) <= 7, 'n0z70'),                                # Zachmurzenie duże
+    # Opady
+    {'condition': lambda data: 'śnieg' in data.get('zjawisko', '').lower(), 'icon_key': 'snow'},
+    {'condition': lambda data: float(data.get('suma_opadu', 0)) > 0.5, 'icon_key': 'rain'},
+    {'condition': lambda data: float(data.get('suma_opadu', 0)) > 0, 'icon_key': 'drizzle'},
 
-    # --- Reguła domyślna ---
-    (lambda d: True, 'n0z80'),                                                                      # Całkowite zachmurzenie (domyślne)
+    # Zachmurzenie (skala 0-8 w API IMGW)
+    {'condition': lambda data: float(data.get('zachmurzenie_ogolne', 0)) > 4, 'icon_key': 'cloudy'}, # Zachmurzenie duże lub całkowite
+
+    # Domyślnie - bezchmurnie
+    {'condition': lambda data: True, 'icon_key': 'clear'},
 ]
 
-def _map_weather_to_icon(station_data):
-    """
-    Mapuje dane ze stacji na odpowiednią nazwę pliku ikony, używając systemu opartego na regułach.
-    Poprawnie obsługuje rozróżnienie ikon dziennych i nocnych.
-    """
-    # Zbuduj pełną, absolutną ścieżkę do ikony zastępczej, która będzie używana w przypadku błędu lub braku dopasowania.
-    # config.WEATHER_ICONS_PATH jest mapowany na ścieżkę w cache'u przez main.py.
-    # config.DEFAULT_WEATHER_ICON_PATH to ścieżka względna wewnątrz katalogu ikon.
-    # Połączenie ich gwarantuje, że zawsze będziemy mieli poprawną, absolutną ścieżkę.
-    fallback_icon_path = os.path.join(config.WEATHER_ICONS_PATH, config.DEFAULT_WEATHER_ICON_PATH)
+def _select_weather_icon(weather_api_data, is_day):
+    """Wybiera odpowiednią ikonę na podstawie reguł i pory dnia."""
+    # Upewnij się, że słowniki ikon są zainicjalizowane
+    _initialize_icon_dictionaries()
 
-    try:
-        # --- Krok 1: Ustal, czy jest dzień czy noc, aby wybrać poprawny prefiks ikony ---
-        sunrise_str, sunset_str = _get_sunrise_sunset()
-        is_day = False
-        if sunrise_str != "--:--" and sunset_str != "--:--":
-            now = datetime.now().time()
-            sunrise_time = datetime.strptime(sunrise_str, '%H:%M').time()
-            sunset_time = datetime.strptime(sunset_str, '%H:%M').time()
-            if sunrise_time <= now < sunset_time:
-                is_day = True
-        prefix = 'd' if is_day else 'n'
-        alt_prefix = 'n' if is_day else 'd'
+    for rule in WEATHER_RULES:
+        if rule['condition'](weather_api_data):
+            icon_key = rule['icon_key']
 
-        # --- Krok 2: Znajdź pasujący kod ikony za pomocą silnika reguł ---
-        icon_base_code = None
-        for condition, code in WEATHER_RULES:
-            if condition(station_data):
-                icon_base_code = code
-                break
+            # Wybierz zestaw ikon (dzienny/nocny)
+            icons_set = DAY_ICONS if is_day else NIGHT_ICONS
+            fallback_icons_set = NIGHT_ICONS if is_day else DAY_ICONS
 
-        # --- Krok 3: Zbuduj ścieżkę i sprawdź, czy plik istnieje (z opcją awaryjną) ---
-        primary_icon_path = os.path.join('imgw', prefix, f"{icon_base_code}.svg")
-        full_primary_path = os.path.join(config.WEATHER_ICONS_PATH, primary_icon_path)
+            # Pobierz preferowaną ikonę
+            icon_path = icons_set.get(icon_key)
 
-        if os.path.exists(full_primary_path):
-            return full_primary_path
+            # Sprawdź, czy plik ikony istnieje
+            if icon_path and os.path.exists(icon_path):
+                return icon_path
 
-        # Jeśli preferowana ikona (np. dzienna) nie istnieje, spróbuj alternatywnej (np. nocnej)
-        alt_icon_path = os.path.join('imgw', alt_prefix, f"{icon_base_code}.svg")
-        full_alt_path = os.path.join(config.WEATHER_ICONS_PATH, alt_icon_path)
-        if os.path.exists(full_alt_path):
-            logging.debug(f"Ikona '{primary_icon_path}' nie istnieje, używam alternatywnej '{alt_icon_path}'.")
-            return full_alt_path
+            # Fallback: jeśli ikona dzienna/nocna nie istnieje, spróbuj użyć jej odpowiednika
+            fallback_icon_path = fallback_icons_set.get(icon_key)
+            if fallback_icon_path and os.path.exists(fallback_icon_path):
+                logging.warning(f"Ikona dla klucza '{icon_key}' nie istnieje w preferowanym zestawie. Używam fallback.")
+                return fallback_icon_path
 
-        logging.warning(f"Nie znaleziono ani preferowanej ('{primary_icon_path}') ani alternatywnej ikony. Używam ikony zastępczej.")
-        return fallback_icon_path
+            logging.error(f"Nie znaleziono pliku ikony dla klucza '{icon_key}' (ani dziennej, ani nocnej).")
 
-    except (ValueError, TypeError, AttributeError) as e:
-        logging.error(f"Błąd podczas mapowania ikony pogody: {e}. Używam ikony zastępczej.")
-        return fallback_icon_path
+    logging.error("Nie dopasowano żadnej reguły pogodowej. Zwracam ikonę błędu.")
+    return config.ICON_SYNC_PROBLEM_PATH
 
 @retry(exceptions=(requests.exceptions.RequestException,), tries=3, delay=5, backoff=2, logger=logging)
 def _fetch_imgw_data(url):
@@ -132,13 +144,23 @@ def _fetch_imgw_data(url):
     response.raise_for_status()
     return response.json()
 
+def _get_value_from_airly(airly_data, name):
+    """Pomocnicza funkcja do wyciągania wartości z danych Airly."""
+    if not airly_data or 'current' not in airly_data or 'values' not in airly_data['current']:
+        return None
+
+    for item in airly_data['current']['values']:
+        if item['name'] == name:
+            return item['value']
+    return None
+
 def update_weather_data():
     """
-    Pobiera dane pogodowe z API IMGW. W przypadku błędu sieciowego,
-    aplikacja będzie korzystać z ostatnich pomyślnie pobranych danych (cache).
-    Nowe dane są zapisywane do pliku JSON tylko po pomyślnym pobraniu.
+    Łączy dane z dwóch źródeł: dane pomiarowe (temperatura, wilgotność, ciśnienie)
+    z Airly (jeśli dostępne), a dane opisowe (zjawiska, zachmurzenie) z IMGW.
     """
     file_path = os.path.join(path_manager.CACHE_DIR, 'weather.json')
+    airly_file_path = os.path.join(path_manager.CACHE_DIR, 'airly.json')
 
     if not hasattr(config, 'IMGW_STATION_NAME') or not config.IMGW_STATION_NAME:
         logging.error("Brak zdefiniowanej nazwy stacji IMGW_STATION_NAME w pliku config.py.")
@@ -148,6 +170,15 @@ def update_weather_data():
         return
 
     try:
+        # Krok 1: Wczytaj dane z Airly (jeśli istnieją)
+        airly_data = None
+        try:
+            if os.path.exists(airly_file_path):
+                with open(airly_file_path, 'r', encoding='utf-8') as f:
+                    airly_data = json.load(f)
+        except (IOError, json.JSONDecodeError):
+            logging.warning(f"Nie można odczytać pliku danych Airly: {airly_file_path}")
+
         api_url = "https://danepubliczne.imgw.pl/api/data/synop"
         all_stations_data = _fetch_imgw_data(api_url)
 
@@ -161,17 +192,35 @@ def update_weather_data():
             logging.error(f"Nie znaleziono danych dla stacji '{config.IMGW_STATION_NAME}' w odpowiedzi z API. Używam danych z cache.")
             return
 
-        # --- Pomyślnie pobrano dane, przetwarzamy i zapisujemy ---
-        icon_path = _map_weather_to_icon(station_data)
+        # Krok 2: Pomyślnie pobrano dane z IMGW, przetwarzamy je
         sunrise, sunset = _get_sunrise_sunset()
+
+        # Ustal, czy jest dzień, aby wybrać odpowiedni zestaw ikon
+        is_day = False
+        if sunrise != "--:--" and sunset != "--:--":
+            now_time = datetime.now().time()
+            sunrise_time = datetime.strptime(sunrise, '%H:%M').time()
+            sunset_time = datetime.strptime(sunset, '%H:%M').time()
+            if sunrise_time <= now_time < sunset_time:
+                is_day = True
+
+        icon_path = _select_weather_icon(station_data, is_day)
+
+        # Krok 3: Połącz dane. Priorytet mają dane z Airly.
+        # Jeśli dane z Airly są dostępne, nadpisują te z IMGW.
+        temp_real = _get_value_from_airly(airly_data, 'TEMPERATURE') or station_data.get('temperatura')
+        humidity = _get_value_from_airly(airly_data, 'HUMIDITY') or station_data.get('wilgotnosc_wzgledna')
+        pressure = _get_value_from_airly(airly_data, 'PRESSURE') or station_data.get('cisnienie')
+
+        logging.info(f"Źródło danych pomiarowych: {'Airly' if airly_data and _get_value_from_airly(airly_data, 'TEMPERATURE') is not None else 'IMGW'}")
 
         data_to_save = {
             "icon": icon_path,
-            "temp_real": station_data.get('temperatura'),
+            "temp_real": round(temp_real) if temp_real is not None else '--',
             "sunrise": sunrise,
             "sunset": sunset,
-            "humidity": station_data.get('wilgotnosc_wzgledna'),
-            "pressure": station_data.get('cisnienie'),
+            "humidity": round(humidity) if humidity is not None else '--',
+            "pressure": round(pressure) if pressure is not None else '--',
             "timestamp": datetime.now(timezone.utc).isoformat()
         }
 

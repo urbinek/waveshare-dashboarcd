@@ -46,9 +46,12 @@ def generate_image(layout_config, draw_borders=False):
     """Generuje obraz do wyświetlenia na podstawie danych z plików JSON."""
     time_data = safe_read_json('time.json', {'time': '??:??', 'date': 'Brak daty', 'weekday': 'Brak dnia'})
     weather_data = safe_read_json('weather.json', {
-        'icon': 'mdi/help-circle-outline.svg',
+        'icon': config.ICON_SYNC_PROBLEM_PATH,
         'temp_real': '??', 'sunrise': '--:--', 'sunset': '--:--',
         'humidity': '--', 'pressure': '--'
+    })
+    airly_data = safe_read_json('airly.json', {
+        "current": {"indexes": [{"name": "AIRLY_CAQI", "value": 0, "level": "UNKNOWN", "description": "Brak danych"}]}
     })
     calendar_data = safe_read_json('calendar.json', {
         'upcoming_events': [],
@@ -69,10 +72,11 @@ def generate_image(layout_config, draw_borders=False):
     else:
         logging.info("Panel 'time' jest wyłączony w konfiguracji. Pomijanie.")
 
-    if layout_config.get('weather', {}).get('enabled', True):
-        weather_panel.draw_panel(black_image, draw_black, weather_data, fonts, layout_config['weather'])
+    # Używamy nowego, połączonego panelu 'weather_and_air'
+    if layout_config.get('weather_and_air', {}).get('enabled', True):
+        weather_panel.draw_panel(black_image, draw_red, weather_data, airly_data, fonts, layout_config['weather_and_air'])
     else:
-        logging.info("Panel 'weather' jest wyłączony w konfiguracji. Pomijanie.")
+        logging.info("Panel 'weather_and_air' jest wyłączony w konfiguracji. Pomijanie.")
 
     # Obsługa błędu autoryzacji kalendarza lub rysowanie paneli kalendarza/wydarzeń
     if calendar_data.get('error') == 'AUTH_ERROR':
@@ -213,7 +217,7 @@ def update_display(layout_config, force_full_refresh=False, draw_borders=False, 
 
 def partial_update_time(layout_config, draw_borders=False, flip=False):
     """Aktualizuje tylko panel czasu na ekranie, używając szybkiego odświeżenia."""
-    time_panel_config = layout_config.get('time')
+    time_panel_config = layout_config.get('time', {})
     if not time_panel_config or not time_panel_config.get('enabled', True):
         logging.debug("Panel czasu jest wyłączony w konfiguracji, pomijam częściową aktualizację.")
         return

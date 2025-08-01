@@ -22,3 +22,6 @@ _BASE_RAM_DIR = _find_best_base_dir()
 
 # Główna, publiczna ścieżka do katalogu cache'u aplikacji
 CACHE_DIR = os.path.join(_BASE_RAM_DIR, config.CACHE_DIR_NAME)
+
+# Ścieżka do zasobów (assets) w czasie rzeczywistym, zlokalizowana w cache'u
+RUNTIME_ASSETS_DIR = os.path.join(CACHE_DIR, 'assets')
