@@ -79,11 +79,11 @@ The configuration for `flake8` is located in the `.flake8` file.
 
 ## Development Workflow
 
-**Configuration (`config.yaml`):**
-During development, you can directly modify the `config.yaml` file. It is included in `.gitignore`, so there is no risk of committing personal secrets. This allows for faster testing of new configuration options.
+**Configuration (`config.py`):**
+During development, you can directly modify the `config.py` file. This allows for faster testing of new configuration options.
 
 **Managing Configuration Variables:**
-When adding new configuration variables to `config.yaml`, ensure they are also added to `config.yaml.example` to provide a template for other developers.
+When adding new configuration variables to `config.py`, ensure they are also added to `config.py.example` to provide a template for other developers.
 
 **Updating Dependencies:**
 When adding new Python packages or updating existing ones, ensure `requirements.txt` is updated accordingly. This helps maintain a consistent development environment.
@@ -127,6 +127,3 @@ Once the application is running and data is cached, logging becomes more concise
 
 -   `--service`: Optimizes log format for `systemd` (no timestamps, centered module/level names). Primarily `INFO` level and above are shown.
 -   `--verbose`: Activates `DEBUG` level logging across all modules, providing maximum detail for troubleshooting.
-
-
-

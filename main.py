@@ -6,7 +6,7 @@ import shutil
 import sys
 import datetime
 from apscheduler.schedulers.blocking import BlockingScheduler
-from modules import time, weather, google_calendar, display, path_manager, startup_screens, drawing_utils, layout, asset_manager, airly
+from modules import time, weather, google_calendar, display, path_manager, startup_screens, drawing_utils, layout, asset_manager, airly, accuweather
 import config
 
 # --- Niestandardowy Formater Logów ---
@@ -26,20 +26,39 @@ class CenteredFormatter(logging.Formatter):
 should_flip = False
 
 
-def update_all_data_sources(layout_config):
+def update_all_data_sources(layout_config, verbose_mode=False):
     """Uruchamia wszystkie moduły zbierające dane w odpowiedniej kolejności."""
     logging.info("Rozpoczynanie aktualizacji wszystkich źródeł danych...")
-    airly.update_airly_data() # Pobierz dane Airly PRZED danymi pogodowymi
+
+    # Uruchomienie pobierania danych w osobnych wątkach
+    airly_thread = threading.Thread(target=airly.update_airly_data, args=(verbose_mode,))
+    accuweather_thread = threading.Thread(target=accuweather.update_accuweather_data, args=(verbose_mode,))
+    google_calendar_thread = threading.Thread(target=google_calendar.update_calendar_data, args=(verbose_mode,))
+
+    airly_thread.start()
+    accuweather_thread.start()
+    google_calendar_thread.start()
+
+    # Poczekaj na zakończenie wątków Airly i AccuWeather, ponieważ weather.py ich potrzebuje
+    airly_thread.join()
+    accuweather_thread.join()
+
+    # Aktualizacja danych czasu (niezależna)
     time.update_time_data()
+
+    # Aktualizacja danych pogodowych (zależna od Airly i AccuWeather)
     weather.update_weather_data()
-    google_calendar.update_calendar_data()
+
+    # Wątek Google Calendar może zakończyć się później, jeśli jest to dozwolone
+    google_calendar_thread.join()
+
     logging.info("Zakończono aktualizację wszystkich źródeł danych.")
 
-def deep_refresh_job(layout_config, draw_borders_flag=False):
+def deep_refresh_job(layout_config, draw_borders_flag=False, verbose_mode=False):
     """Zadanie dla harmonogramu: wykonuje głębokie odświeżenie z przesunięciem pikseli o 3:00 w nocy."""
     try:
         logging.info("Rozpoczynanie zaplanowanego, głębokiego odświeżenia ekranu (3:00 w nocy).")
-        update_all_data_sources(layout_config)
+        update_all_data_sources(layout_config, verbose_mode)
 
         logging.info("Wykonywanie pełnego, głębokiego odświeżenia z przesunięciem pikseli.")
         display.update_display(
@@ -52,11 +71,11 @@ def deep_refresh_job(layout_config, draw_borders_flag=False):
     except Exception as e:
         logging.error(f"Błąd podczas głębokiego odświeżenia: {e}", exc_info=True)
 
-def main_update_job(layout_config, draw_borders_flag=False):
+def main_update_job(layout_config, draw_borders_flag=False, verbose_mode=False):
     """Główne zadanie dla harmonogramu, uruchamiane co godzinę (z wyjątkiem 3:00)."""
     try:
         logging.info("Rozpoczynanie cogodzinnej, standardowej aktualizacji danych i ekranu...")
-        update_all_data_sources(layout_config)
+        update_all_data_sources(layout_config, verbose_mode)
 
         logging.info("Wykonywanie standardowego odświeżenia ekranu.")
         display.update_display(
