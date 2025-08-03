@@ -15,7 +15,7 @@ The project is a personalized, dual-color (black and red) dashboard for a 7.5-in
     - `Pillow` for image manipulation
     - `cairosvg` for SVG rendering (recommended for performance)
 - **Configuration:**
-    - `config.py` for all application settings, including panel layout and positioning.
+    - `config.yaml` for all application settings.
 - **Linting:** `flake8` (configuration in `.flake8`)
 
 ## Development Setup
@@ -40,7 +40,7 @@ The project is a personalized, dual-color (black and red) dashboard for a 7.5-in
     ```
 
 4.  **Configure the application:**
-    - Copy `config.py.example` to `config.py` and fill in the required values (API keys, location, etc.).
+    - Copy `config.yaml.example` to `config.yaml` and fill in the required values (API keys, location, etc.).
     - Copy `credentials.json.example` to `credentials.json` and add your Google API credentials.
 
 5.  **Authorize Google Calendar:**
@@ -79,13 +79,13 @@ The configuration for `flake8` is located in the `.flake8` file.
 
 ## Development Workflow
 
-**Configuration (`config.py`):**
-During development, you can directly modify the `config.py` file. This allows for faster testing of new configuration options.
+### Configuration Management
+- **NEVER** store credentials, API keys, or any other secrets directly in Python code files (`.py`), not even in example files.
+- All configuration, including API keys, **MUST** be stored in `config.yaml`.
+- When you add or change a configuration setting, you **MUST** update both `config.yaml` (for your local development) and `config.yaml.example` (the template for other users).
+- The `config.yaml.example` file **MUST NOT** contain any real API keys or personal information. Use placeholder values like `YOUR_API_KEY`.
 
-**Managing Configuration Variables:**
-When adding new configuration variables to `config.py`, ensure they are also added to `config.py.example` to provide a template for other developers.
-
-**Updating Dependencies:**
+### Updating Dependencies
 When adding new Python packages or updating existing ones, ensure `requirements.txt` is updated accordingly. This helps maintain a consistent development environment.
 
 ## Logging Guidelines
@@ -126,4 +126,4 @@ Once the application is running and data is cached, logging becomes more concise
 ### Command-Line Flag Adaptation
 
 -   `--service`: Optimizes log format for `systemd` (no timestamps, centered module/level names). Primarily `INFO` level and above are shown.
--   `--verbose`: Activates `DEBUG` level logging across all modules, providing maximum detail for troubleshooting.
+-   `--verbose`: Activates `DEBUG` level logging across all modules, providing maximum detail for troubleshooting. If avaliable print json reponses from API querries

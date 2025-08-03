@@ -1,3 +1,4 @@
+
 import datetime
 import os.path
 import json
@@ -18,7 +19,7 @@ if __name__ == '__main__' and __package__ is None:
     import sys
     sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import config
+from modules.config_loader import config
 from modules import path_manager
 from modules.network_utils import retry
 
@@ -27,13 +28,16 @@ logger = logging.getLogger(__name__)
 SCOPES = ['https://www.googleapis.com/auth/calendar.readonly']
 JSON_PATH = os.path.join(path_manager.CACHE_DIR, 'calendar.json')
 LOCK_PATH = os.path.join(path_manager.CACHE_DIR, 'calendar.json.lock')
-
+GCAL_CONFIG = config['google_calendar']
 
 def get_google_creds():
     """Zarządza uwierzytelnianiem Google i zwraca obiekt credentials."""
     creds = None
-    if os.path.exists(config.GOOGLE_TOKEN_FILE):
-        creds = Credentials.from_authorized_user_file(config.GOOGLE_TOKEN_FILE, SCOPES)
+    token_file = GCAL_CONFIG['token_file']
+    creds_file = GCAL_CONFIG['credentials_file']
+
+    if os.path.exists(token_file):
+        creds = Credentials.from_authorized_user_file(token_file, SCOPES)
 
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
@@ -42,22 +46,22 @@ def get_google_creds():
                 creds.refresh(Request())
             except RefreshError as e:
                 logger.warning(f"Nie udało się odświeżyć tokenu ({e}). Rozpoczynam ponowną autoryzację.")
-                os.remove(config.GOOGLE_TOKEN_FILE)
+                os.remove(token_file)
                 creds = None
         if not creds:
-            if not os.path.exists(config.GOOGLE_CREDS_FILE):
-                logger.critical(f"Brak pliku credentials.json! Pobierz go z Google Cloud Console i umieść w głównym katalogu.")
+            if not os.path.exists(creds_file):
+                logger.critical(f"Brak pliku {creds_file}! Pobierz go z Google Cloud Console.")
                 return None
             logger.info("Uruchamianie przepływu autoryzacji Google...")
-            flow = InstalledAppFlow.from_client_secrets_file(config.GOOGLE_CREDS_FILE, SCOPES)
+            flow = InstalledAppFlow.from_client_secrets_file(creds_file, SCOPES)
             creds = flow.run_local_server(port=0)
 
-        with open(config.GOOGLE_TOKEN_FILE, 'w') as token:
+        with open(token_file, 'w') as token:
             token.write(creds.to_json())
     return creds
 
 @retry(exceptions=(socket.timeout, ssl.SSLError, TransportError, ConnectionResetError, HttpError), tries=3, delay=10, backoff=2, logger=logger)
-def _get_events(service, calendar_id, time_min, time_max=None, max_results=10, verbose_mode=False): # Dodano verbose_mode
+def _get_events(service, calendar_id, time_min, time_max=None, max_results=250, verbose_mode=False):
     """Pomocnicza funkcja do pobierania wydarzeń z określonego kalendarza."""
     try:
         events_result = service.events().list(
@@ -68,15 +72,12 @@ def _get_events(service, calendar_id, time_min, time_max=None, max_results=10, v
             singleEvents=True,
             orderBy='startTime'
         ).execute()
-        if verbose_mode: # Logowanie pełnej odpowiedzi JSON tylko w trybie verbose
+        if verbose_mode:
             logger.debug(f"Pobrana odpowiedź JSON z Google Calendar dla {calendar_id}: {json.dumps(events_result, indent=4)}")
         return events_result.get('items', [])
     except HttpError as e:
         if e.resp.status == 404:
-            logger.error(
-                f"Nie znaleziono kalendarza o ID '{calendar_id}' (Błąd 404). "
-                "Sprawdź, czy ID w pliku config.py jest poprawne i czy masz uprawnienia do jego wyświetlania."
-            )
+            logger.error(f"Nie znaleziono kalendarza o ID '{calendar_id}'. Sprawdź ID w config.yaml.")
         else:
             logger.error(f"Wystąpił błąd API ({e.resp.status}) podczas pobierania danych dla kalendarza {calendar_id}: {e}")
         return []
@@ -101,36 +102,67 @@ def _update_json_data(update_dict):
         data.update(update_dict)
         _write_calendar_data(data)
 
-def update_personal_events(verbose_mode=False): # Dodano verbose_mode
-    """Pobiera i aktualizuje tylko wydarzenia osobiste."""
-    logger.info("Aktualizowanie wydarzeń osobistych...")
+def update_events(verbose_mode=False):
+    """Pobiera i aktualizuje wydarzenia osobiste oraz święta."""
+    logger.info("Aktualizowanie wydarzeń osobistych i świąt...")
     creds = get_google_creds()
     if not creds: return
 
     try:
         service = build('calendar', 'v3', credentials=creds)
         now_utc_iso = datetime.datetime.utcnow().isoformat() + 'Z'
-        personal_events_raw = _get_events(service, config.GOOGLE_CALENDAR_IDS['personal'], now_utc_iso, max_results=config.MAX_UPCOMING_EVENTS, verbose_mode=verbose_mode) # Przekazanie verbose_mode
+        
+        personal_events_raw = _get_events(service, GCAL_CONFIG['calendar_ids']['personal'], now_utc_iso, max_results=GCAL_CONFIG['max_upcoming_events'], verbose_mode=verbose_mode)
+        holiday_events_raw = _get_events(service, GCAL_CONFIG['calendar_ids']['holidays'], now_utc_iso, max_results=GCAL_CONFIG['max_upcoming_events'], verbose_mode=verbose_mode)
 
+        all_events = []
+        for event_raw in personal_events_raw + holiday_events_raw:
+            start_info = event_raw.get('start')
+            end_info = event_raw.get('end')
+            if not start_info or not end_info:
+                continue
+
+            start_date_str = start_info.get('dateTime', start_info.get('date'))
+            end_date_str = end_info.get('dateTime', end_info.get('date'))
+
+            if not start_date_str or not end_date_str:
+                continue
+
+            start_dt = datetime.datetime.fromisoformat(start_date_str.split('T')[0])
+            end_dt = datetime.datetime.fromisoformat(end_date_str.split('T')[0])
+
+            # Google Calendar all-day events end at midnight of the next day, so adjust end_dt
+            if 'date' in start_info and 'date' in end_info:
+                end_dt -= datetime.timedelta(days=1)
+
+            current_dt = start_dt
+            while current_dt <= end_dt:
+                is_holiday_event = event_raw.get('organizer', {}).get('email') == GCAL_CONFIG['calendar_ids']['holidays']
+                all_events.append({
+                    'summary': event_raw.get('summary', 'Brak tytułu'),
+                    'start': current_dt.isoformat(),
+                    'is_holiday': is_holiday_event
+                })
+                current_dt += datetime.timedelta(days=1)
+
+        # Sort events by start time
+        all_events.sort(key=lambda x: x['start'])
+        
         upcoming_events = []
         event_dates = []
-        for event in personal_events_raw:
-            start_info = event.get('start')
-            if not start_info: continue
-            start_date_str = start_info.get('dateTime', start_info.get('date'))
-            if not start_date_str: continue
-            upcoming_events.append({'summary': event.get('summary', 'Brak tytułu'), 'start': start_date_str})
-            event_dates.append(datetime.datetime.fromisoformat(start_date_str.split('T')[0]).date().isoformat())
+        for event in all_events[:GCAL_CONFIG['max_upcoming_events']]:
+            upcoming_events.append(event)
+            event_dates.append(datetime.datetime.fromisoformat(event['start'].split('T')[0]).date().isoformat())
 
         _update_json_data({
             'upcoming_events': upcoming_events,
             'event_dates': event_dates
         })
-        logger.info("Zakończono aktualizację wydarzeń osobistych.")
+        logger.info("Zakończono aktualizację wydarzeń osobistych i świąt.")
     except Exception as e:
-        logger.error(f"Błąd podczas aktualizacji wydarzeń osobistych: {e}", exc_info=True)
+        logger.error(f"Błąd podczas aktualizacji wydarzeń osobistych i świąt: {e}", exc_info=True)
 
-def update_holidays(verbose_mode=False): # Dodano verbose_mode
+def update_holidays(verbose_mode=False):
     """Pobiera i aktualizuje tylko dane o świętach (raz dziennie)."""
     logger.info("Aktualizowanie danych o świętach...")
     creds = get_google_creds()
@@ -146,18 +178,18 @@ def update_holidays(verbose_mode=False): # Dodano verbose_mode
         time_min_month_utc = datetime.datetime.combine(start_of_month, datetime.time.min).isoformat() + 'Z'
         time_max_month_utc = datetime.datetime.combine(end_of_month, datetime.time.max).isoformat() + 'Z'
 
-        polish_holidays_raw = _get_events(service, config.GOOGLE_CALENDAR_IDS['holidays'], time_min_month_utc, time_max_month_utc, verbose_mode=verbose_mode) # Przekazanie verbose_mode
+        polish_holidays_raw = _get_events(service, GCAL_CONFIG['calendar_ids']['holidays'], time_min_month_utc, time_max_month_utc, verbose_mode=verbose_mode)
         holiday_dates = [event['start']['date'] for event in polish_holidays_raw if 'date' in event['start']]
 
         today_start_utc = datetime.datetime.combine(today_local, datetime.time.min).isoformat() + 'Z'
         today_end_utc = datetime.datetime.combine(today_local, datetime.time.max).isoformat() + 'Z'
         unusual_holidays_today_raw = _get_events(
             service,
-            config.GOOGLE_CALENDAR_IDS['unusual'],
+            GCAL_CONFIG['calendar_ids']['unusual'],
             time_min=today_start_utc,
             time_max=today_end_utc,
             max_results=5,
-            verbose_mode=verbose_mode # Przekazanie verbose_mode
+            verbose_mode=verbose_mode
         )
 
         unusual_holiday_title = 'Brak nietypowych świąt dzisiaj.'
@@ -167,12 +199,9 @@ def update_holidays(verbose_mode=False): # Dodano verbose_mode
             unusual_holiday_title = first_event.get('summary', 'Brak tytułu')
             description = first_event.get('description')
             if description:
-                # Spróbuj podzielić po punktorze, aby uzyskać główny opis.
-                # To częsty format w kalendarzu Nonsensopedii.
                 if '•' in description:
                     unusual_holiday_desc = description.split('•')[0].strip()
                 else:
-                    # Jeśli nie ma punktora, weź pierwszą linię jako opis.
                     unusual_holiday_desc = description.splitlines()[0].strip()
 
         _update_json_data({
@@ -211,20 +240,20 @@ def build_calendar_grid():
         _write_calendar_data(data)
     logger.info("Zakończono budowanie siatki kalendarza.")
 
-def update_calendar_data(verbose_mode=False): # Dodano verbose_mode
+def update_calendar_data(verbose_mode=False):
     """Uruchamia pełną aktualizację wszystkich danych kalendarza."""
     logger.info("Uruchamianie pełnej aktualizacji danych kalendarza...")
     try:
-        update_holidays(verbose_mode) # Przekazanie verbose_mode
-        update_personal_events(verbose_mode) # Przekazanie verbose_mode
+        update_holidays(verbose_mode)
+        update_events(verbose_mode)
         build_calendar_grid()
     except (socket.timeout, ssl.SSLError, TransportError, ConnectionResetError, HttpError) as e:
-        logger.warning(f"Błąd sieci podczas aktualizacji danych kalendarza: {e}. Aplikacja użyje danych z pamięci podręcznej.")
+        logger.warning(f"Błąd sieci podczas aktualizacji danych kalendarza: {e}.")
     except Exception as e:
-        logger.error(f"Wystąpił nieoczekiwany błąd w module kalendarza: {e}. Aplikacja użyje danych z pamięci podręcznej.", exc_info=True)
+        logger.error(f"Wystąpił nieoczekiwany błąd w module kalendarza: {e}.", exc_info=True)
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
     logger.info("Uruchamianie modułu kalendarza w celu autoryzacji i wstępnej synchronizacji...")
-    update_calendar_data() # Tutaj nie przekazujemy verbose_mode, bo to jest tylko dla testów modułu
-    logger.info("Autoryzacja i synchronizacja zakończona. Plik token.json i calendar.json powinny istnieć.")
+    update_calendar_data()
+    logger.info("Autoryzacja i synchronizacja zakończona.")

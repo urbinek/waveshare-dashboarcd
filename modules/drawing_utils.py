@@ -5,38 +5,33 @@ import textwrap
 from functools import lru_cache
 from PIL import Image, ImageFont
 
-# Użyj cairosvg jeśli jest dostępne, jest znacznie szybsze i lepsze niż svglib
+from modules import asset_manager
+
 try:
     from cairosvg import svg2png
     SVG_RENDERER = 'cairosvg'
 except ImportError:
-    # svglib jest wolniejszy i ma problemy z niektórymi plikami SVG
     from svglib.svglib import svg2rlg
     from reportlab.graphics import renderPM
     SVG_RENDERER = 'svglib'
-    logging.warning("Biblioteka 'cairosvg' nie jest zainstalowana (`pip install cairosvg`). Używam wolniejszej biblioteki 'svglib'. Zalecana jest instalacja cairosvg dla lepszej wydajności.")
-
-import config
+    logging.warning("Biblioteka 'cairosvg' nie jest zainstalowana. Używam wolniejszej biblioteki 'svglib'.")
 
 @lru_cache(maxsize=None)
 def load_fonts():
     """
     Wczytuje wszystkie zdefiniowane w konfiguracji czcionki.
-    Dzięki dekoratorowi @lru_cache, czcionki są wczytywane z dysku tylko raz,
-    co znacząco przyspiesza operacje rysowania.
     """
-    logging.info("Wczytywanie czcionek do pamięci podręcznej (pierwsze uruchomienie)...")
+    logging.info("Wczytywanie czcionek do pamięci podręcznej...")
     fonts = {}
     try:
-        fonts['large'] = ImageFont.truetype(config.FONT_ROBOTO_MONO_BOLD, 96)
-        fonts['medium'] = ImageFont.truetype(config.FONT_ROBOTO_MONO_BOLD, 32)
-        fonts['small'] = ImageFont.truetype(config.FONT_ROBOTO_MONO_REGULAR, 20)
-        fonts['small_bold'] = ImageFont.truetype(config.FONT_ROBOTO_MONO_BOLD, 20)
-        fonts['weather_temp'] = ImageFont.truetype(config.FONT_ROBOTO_MONO_BOLD, 72)
+        fonts['large'] = ImageFont.truetype(asset_manager.get_path('font_bold'), 96)
+        fonts['medium'] = ImageFont.truetype(asset_manager.get_path('font_bold'), 32)
+        fonts['small'] = ImageFont.truetype(asset_manager.get_path('font_regular'), 20)
+        fonts['small_bold'] = ImageFont.truetype(asset_manager.get_path('font_bold'), 20)
+        fonts['weather_temp'] = ImageFont.truetype(asset_manager.get_path('font_bold'), 72)
         logging.info("Wszystkie czcionki wczytane pomyślnie.")
-    except IOError as e:
-        logging.critical(f"Nie udało się wczytać pliku czcionki: {e}. Upewnij się, że ścieżki w config.py są poprawne.")
-        # W przypadku błędu, zwróć domyślne czcionki, aby aplikacja mogła próbować działać dalej
+    except (IOError, KeyError) as e:
+        logging.critical(f"Nie udało się wczytać pliku czcionki: {e}. Sprawdź konfigurację w config.yaml.")
         fonts['large'] = ImageFont.load_default()
         fonts['medium'] = ImageFont.load_default()
         fonts['small'] = ImageFont.load_default()
@@ -48,36 +43,25 @@ def load_fonts():
 def render_svg_with_cache(svg_path, size):
     """
     Renderuje plik SVG do obiektu obrazu Pillow, z agresywnym cachingiem.
-    Loguje informację o renderowaniu tylko przy pierwszym wczytaniu danego zasobu (cache miss).
-    Kluczem cache'a jest kombinacja ścieżki pliku i rozmiaru.
-    Zwraca obiekt obrazu Pillow w trybie RGBA.
     """
-    if not svg_path:
-        logging.warning("Wywołano render_svg_with_cache z pustą ścieżką (svg_path=None).")
+    if not svg_path or not os.path.exists(svg_path):
+        logging.error(f"Plik SVG nie istnieje: {svg_path}")
         return None
 
-    if not os.path.exists(svg_path):
-        logging.error(f"Plik SVG nie istnieje pod ścieżką: {svg_path}")
-        return None
-
-    # Ten log pojawi się tylko wtedy, gdy zasób nie jest w cache (cache miss).
-    # Zmieniamy na DEBUG, aby nie zaśmiecać logów. Specjalne logowanie będzie w panelu.
     logging.debug(f"Renderowanie SVG (cache miss): {svg_path}")
 
     try:
         if SVG_RENDERER == 'cairosvg':
             png_data = svg2png(url=svg_path, output_width=size, output_height=size)
-            in_memory_file = io.BytesIO(png_data)
-            image = Image.open(in_memory_file).convert("RGBA")
-        else: # svglib
+            return Image.open(io.BytesIO(png_data)).convert("RGBA")
+        else:
             drawing = svg2rlg(svg_path)
             in_memory_file = io.BytesIO()
             renderPM.drawToFile(drawing, in_memory_file, fmt="PNG", bg=0xFFFFFF, configPIL={'transparent': 1})
             in_memory_file.seek(0)
-            image = Image.open(in_memory_file).resize((size, size), Image.Resampling.LANCZOS).convert("RGBA")
-        return image
+            return Image.open(in_memory_file).resize((size, size), Image.Resampling.LANCZOS).convert("RGBA")
     except Exception as e:
-        logging.error(f"Nie udało się zrenderować SVG '{svg_path}' za pomocą {SVG_RENDERER}: {e}")
+        logging.error(f"Nie udało się zrenderować SVG '{svg_path}': {e}")
         return None
 
 def draw_error_message(draw_obj, message, fonts, panel_config):

@@ -1,15 +1,14 @@
 import os
 import json
 import logging
-from datetime import date, datetime, timezone # <-- POPRAWKA: Dodano brakujący import
+from datetime import date, datetime, timezone
 from astral.sun import sun
 from astral import LocationInfo
 from dateutil import tz
 
-import config
-from modules import path_manager
+from modules.config_loader import config
+from modules import path_manager, asset_manager
 
-# Mapowanie ikon AccuWeather na ikony Feather
 WEATHER_ICON_MAP = {
     1: 'sun', 2: 'sun', 3: 'sun', 4: 'sun', 5: 'sun', 6: 'cloud', 7: 'cloud', 8: 'cloud',
     11: 'align-justify', 12: 'cloud-rain', 13: 'cloud-rain', 14: 'cloud-rain', 15: 'cloud-lightning',
@@ -24,14 +23,15 @@ WEATHER_ICON_MAP = {
 def _select_weather_icon(icon_number):
     """Wybiera ikonę Feather na podstawie numeru ikony z AccuWeather."""
     if icon_number is None:
-        return config.ICON_SYNC_PROBLEM_PATH
+        return asset_manager.get_path('icon_sync_problem')
     icon_name = WEATHER_ICON_MAP.get(icon_number, 'alert-triangle')
-    return os.path.join(config.ICON_FEATHER_PATH, f'{icon_name}.svg')
+    return os.path.join(asset_manager.get_path('icons_feather_path'), f'{icon_name}.svg')
 
 def _get_sunrise_sunset():
     """Oblicza czas wschodu i zachodu słońca."""
     try:
-        loc = LocationInfo("Warsaw", "Poland", "Europe/Warsaw", config.LOCATION_LAT, config.LOCATION_LON)
+        location_config = config['location']
+        loc = LocationInfo("Warsaw", "Poland", "Europe/Warsaw", location_config['latitude'], location_config['longitude'])
         s = sun(loc.observer, date=date.today())
         local_tz = tz.gettz("Europe/Warsaw")
         sunrise = s['sunrise'].astimezone(local_tz).strftime('%H:%M')
@@ -42,12 +42,10 @@ def _get_sunrise_sunset():
         return "--:--", "--:--"
 
 def update_weather_data():
-    """Tworzy ujednolicony plik weather.json z danych Airly (podstawa) i AccuWeather (ikony)."""
-    
-    # Krok 1: Wczytaj dane z Airly (źródło prawdy dla sensorów)
+    """Tworzy ujednolicony plik weather.json z danych Airly i AccuWeather."""
     airly_file_path = os.path.join(path_manager.CACHE_DIR, 'airly.json')
     airly_data = {}
-    temp_real, humidity, pressure = "--", "--", "--" # Wartości domyślne
+    temp_real, humidity, pressure = "--", "--", "--"
 
     try:
         with open(airly_file_path, 'r', encoding='utf-8') as f:
@@ -59,9 +57,8 @@ def update_weather_data():
         pressure = round(values.get('PRESSURE', 0))
 
     except (IOError, json.JSONDecodeError, TypeError) as e:
-        logging.warning(f"Nie można odczytać lub przetworzyć pliku Airly: {e}. Używam danych domyślnych dla sensorów.")
+        logging.warning(f"Nie można odczytać lub przetworzyć pliku Airly: {e}.")
 
-    # Krok 2: Wczytaj dane z AccuWeather (tylko dla ikon)
     accuweather_file_path = os.path.join(path_manager.CACHE_DIR, 'accuweather.json')
     accuweather_data = {}
     current_icon_num, forecast_icon_num = None, None
@@ -74,9 +71,8 @@ def update_weather_data():
         forecast_icon_num = accuweather_data.get('forecast', {}).get('Day', {}).get('Icon')
 
     except (IOError, json.JSONDecodeError) as e:
-        logging.info(f"Plik AccuWeather nie jest dostępny: {e}. Ikony pogodowe będą wskazywać błąd synchronizacji.")
+        logging.info(f"Plik AccuWeather nie jest dostępny: {e}.")
 
-    # Krok 3: Połącz dane i zapisz finalny plik weather.json
     sunrise, sunset = _get_sunrise_sunset()
 
     final_weather_data = {

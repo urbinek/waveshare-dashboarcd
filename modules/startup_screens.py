@@ -2,8 +2,7 @@ import logging
 import os
 from PIL import Image, ImageDraw, ImageChops
 
-import config
-from modules import drawing_utils
+from modules import drawing_utils, asset_manager
 
 try:
     from waveshare_epd import epd7in5b_V2
@@ -15,12 +14,11 @@ except (ImportError, RuntimeError):
 
 def display_splash_screen(epd_lock, flip=False):
     """Wyświetla ekran powitalny (splash screen) podczas inicjalizacji."""
-    if not os.path.exists(config.SPLASH_WAVESHARE_LOGO_PATH):
-        logging.error(f"Nie znaleziono pliku logo dla ekranu powitalnego: {config.SPLASH_WAVESHARE_LOGO_PATH}! Pomijanie...")
-        return
-
-    if not os.path.exists(config.SPLASH_CIRCLE_LOGO_PATH):
-        logging.error(f"Nie znaleziono pliku logo dla ekranu powitalnego: {config.SPLASH_CIRCLE_LOGO_PATH}! Pomijanie...")
+    try:
+        waveshare_logo_path = asset_manager.get_path('splash_logo_waveshare')
+        circle_logo_path = asset_manager.get_path('splash_logo_circle')
+    except KeyError as e:
+        logging.error(f"Brak zdefiniowanego zasobu dla ekranu powitalnego: {e}! Pomijanie...")
         return
 
     try:
@@ -41,19 +39,14 @@ def display_splash_screen(epd_lock, flip=False):
         left_box_rect = (0, 0, EPD_WIDTH // 2, EPD_HEIGHT)
         right_box_rect = (EPD_WIDTH // 2, 0, EPD_WIDTH, EPD_HEIGHT)
 
-        waveshare_logo = drawing_utils.render_svg_with_cache(config.SPLASH_WAVESHARE_LOGO_PATH, size=360)
-        img_x = (left_box_rect[2] - waveshare_logo.width) // 2
-        img_y = (left_box_rect[3] - waveshare_logo.height) // 2
+        waveshare_logo = drawing_utils.render_svg_with_cache(waveshare_logo_path, size=360)
         if waveshare_logo:
             img_x = (left_box_rect[2] - waveshare_logo.width) // 2
             img_y = (left_box_rect[3] - waveshare_logo.height) // 2
-            # Tworzymy 1-bitową maskę z kanału alfa logo. Zapewnia to, że każda nieprzezroczysta
-            # część logo staje się częścią kształtu, unikając ditheringu (rozpraszania) szarości.
             mask = waveshare_logo.getchannel('A').point(lambda i: i > 128, '1')
-            # Wklejamy kolor czarny (0) na główny obraz, używając wygenerowanej maski.
             black_image.paste(0, (img_x, img_y), mask)
 
-        circle_logo = drawing_utils.render_svg_with_cache(config.SPLASH_CIRCLE_LOGO_PATH, size=150)
+        circle_logo = drawing_utils.render_svg_with_cache(circle_logo_path, size=150)
         dashboard_text = "DASHBOARD"
         text_padding = 15
 
@@ -72,8 +65,6 @@ def display_splash_screen(epd_lock, flip=False):
         text_y = block_y_start + circle_logo_height + text_padding
         draw_black.text((text_x, text_y), dashboard_text, font=dashboard_font, fill=0, anchor="mt")
 
-        # Odwrócenie kolorów obrazu, aby uzyskać czarne tło i białe elementy
-        logging.info("Odwracanie kolorów ekranu powitalnego (czarne tło).")
         black_image = ImageChops.invert(black_image)
 
         if flip:
@@ -87,11 +78,12 @@ def display_splash_screen(epd_lock, flip=False):
     except Exception as e:
         logging.error(f"Wystąpił błąd podczas wyświetlania ekranu powitalnego: {e}", exc_info=True)
 
-
 def display_easter_egg(epd_lock, flip=False):
     """Wyświetla specjalny obraz 'easter egg'."""
-    if not os.path.exists(config.EASTER_EGG_IMAGE_PATH):
-        logging.error(f"Nie znaleziono pliku obrazu dla Easter Egga: {config.EASTER_EGG_IMAGE_PATH}")
+    try:
+        easter_egg_image_path = asset_manager.get_path('easter_egg_image')
+    except KeyError as e:
+        logging.error(f"Brak zdefiniowanego zasobu dla Easter Egga: {e}! Pomijanie...")
         return
 
     try:
@@ -109,7 +101,7 @@ def display_easter_egg(epd_lock, flip=False):
         red_image = Image.new('1', (EPD_WIDTH, EPD_HEIGHT), 255)
         draw_black = ImageDraw.Draw(black_image)
 
-        source_img = Image.open(config.EASTER_EGG_IMAGE_PATH)
+        source_img = Image.open(easter_egg_image_path)
 
         side_box_width = 200
         middle_box_width = EPD_WIDTH - (2 * side_box_width)

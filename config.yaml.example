@@ -1,0 +1,60 @@
+# Konfiguracja ogólna aplikacji
+app:
+  flip_display: false
+  cache_dir: 'waveshare-dashboard'
+
+# Konfiguracja lokalizacji i dostawców danych pogodowych
+location:
+  latitude: YOUR_LATITUDE
+  longitude: YOUR_LONGITUDE
+  imgw_station_name: "YOUR_IMGW_STATION_NAME"
+
+# Pogodowe klucze API
+api_keys:
+  airly: "YOUR_AIRLY_API_KEY"
+  accuweather: "YOUR_ACCUWEATHER_API_KEY"
+  accuweather_location_key: "YOUR_ACCUWEATHER_LOCATION_KEY"
+
+# Konfiguracja Google Calendar
+google_calendar:
+  credentials_file: 'credentials.json'
+  token_file: 'token.json'
+  calendar_ids:
+    personal: 'YOUR_PERSONAL_CALENDAR_ID'
+    holidays: 'YOUR_HOLIDAYS_CALENDAR_ID'
+    unusual: 'YOUR_UNUSUAL_CALENDAR_ID'
+  max_upcoming_events: 7
+
+# Konfiguracja zasobów (czcionki, ikony, obrazy)
+assets:
+  fonts_dir: 'assets/fonts'
+  icons_dir: 'assets/icons'
+  images_dir: 'assets/img'
+  font_regular: 'RobotoMono-Regular.ttf'
+  font_bold: 'RobotoMono-Bold.ttf'
+  font_easter_egg: 'RobotoMono-Bold.ttf'
+  icons_feather_subdir: 'feather'
+  splash_logo_waveshare: 'waveshare_large.svg'
+  splash_logo_circle: 'urbinek_logo_circle.svg'
+  easter_egg_image: 'papaj.jpg'
+
+# Układ paneli na wyświetlaczu
+panels:
+  time:
+    enabled: true
+    rect: [0, 0, 400, 160]
+    y_offset: 10
+
+  events:
+    enabled: true
+    rect: [0, 160, 400, 480]
+    y_offset: 0
+
+  weather_and_air:
+    enabled: true
+    rect: [400, 0, 800, 160]
+
+  calendar:
+    enabled: true
+    rect: [400, 160, 800, 480]
+    y_offset: 0

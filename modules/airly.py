@@ -1,10 +1,11 @@
+
 import requests
 import json
 import os
 import logging
 from datetime import datetime, timezone
 
-import config
+from modules.config_loader import config
 from modules import path_manager
 from modules.network_utils import retry
 
@@ -24,27 +25,31 @@ def get_mock_data():
     }
 
 @retry(exceptions=(requests.exceptions.RequestException,), tries=3, delay=10, backoff=2, logger=logger)
-def _fetch_airly_data(verbose_mode=False): # Dodano verbose_mode
+def _fetch_airly_data(verbose_mode=False):
     """Pobiera dane z API Airly z mechanizmem ponawiania prób."""
-    if not hasattr(config, 'AIRLY_API_KEY') or not config.AIRLY_API_KEY or config.AIRLY_API_KEY == "TWÓJ_KLUCZ_API_AIRLY":
-        logger.error("Brak skonfigurowanego klucza AIRLY_API_KEY w pliku config.py. Pomijam pobieranie danych Airly.")
+    airly_config = config['api_keys']
+    location_config = config['location']
+    api_key = airly_config.get('airly')
+
+    if not api_key:
+        logger.error("Brak skonfigurowanego klucza AIRLY_API_KEY w pliku config.yaml. Pomijam pobieranie danych Airly.")
         return None
 
-    headers = {'apikey': config.AIRLY_API_KEY, 'Accept-Language': 'pl'}
+    headers = {'apikey': api_key, 'Accept-Language': 'pl'}
     params = {
-        'lat': config.LOCATION_LAT,
-        'lng': config.LOCATION_LON
+        'lat': location_config['latitude'],
+        'lng': location_config['longitude']
     }
-    logger.info(f"Pobieranie danych z API Airly ({API_URL}) dla lokalizacji: lat={config.LOCATION_LAT}, lng={config.LOCATION_LON}")
+    logger.info(f"Pobieranie danych z API Airly ({API_URL}) dla lokalizacji: lat={location_config['latitude']}, lng={location_config['longitude']}")
     response = requests.get(API_URL, headers=headers, params=params, timeout=10)
     response.raise_for_status()
-    
+
     json_data = response.json()
-    if verbose_mode: # Logowanie pełnej odpowiedzi JSON tylko w trybie verbose
+    if verbose_mode:
         logger.debug(f"Pobrana odpowiedź JSON z Airly: {json_data}")
     return json_data
 
-def update_airly_data(verbose_mode=False): # Dodano verbose_mode
+def update_airly_data(verbose_mode=False):
     """
     Pobiera dane o jakości powietrza i pogodzie z API Airly.
     W przypadku błędu, aplikacja będzie korzystać z ostatnich pomyślnie pobranych danych.
@@ -52,16 +57,14 @@ def update_airly_data(verbose_mode=False): # Dodano verbose_mode
     file_path = os.path.join(path_manager.CACHE_DIR, 'airly.json')
 
     try:
-        airly_data = _fetch_airly_data(verbose_mode) # Przekazanie verbose_mode
+        airly_data = _fetch_airly_data(verbose_mode)
 
         if airly_data:
-            # Dodajemy znacznik czasu do zapisywanych danych
             airly_data['timestamp'] = datetime.now(timezone.utc).isoformat()
             with open(file_path, 'w', encoding='utf-8') as f:
                 json.dump(airly_data, f, ensure_ascii=False, indent=4)
             logger.info("Pomyślnie zaktualizowano i zapisano dane Airly.")
         else:
-            # Jeśli klucz API nie jest skonfigurowany, a plik nie istnieje, stwórz plik z danymi zastępczymi.
             if not os.path.exists(file_path):
                 with open(file_path, 'w', encoding='utf-8') as f:
                     json.dump(get_mock_data(), f, ensure_ascii=False, indent=4)

@@ -4,8 +4,9 @@ __pycache__/
 
 # Pliki konfiguracyjne i tokeny
 token.json
+config.yaml
 credentials.json
-config.py
+
 sync.sh
 
 # Pliki logów

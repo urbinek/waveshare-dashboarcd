@@ -1,7 +1,6 @@
 import logging
 from PIL import Image, ImageDraw
-from modules import drawing_utils
-import config
+from modules import drawing_utils, asset_manager
 
 def _get_caqi_data(airly_data):
     """Pomocnicza funkcja do wyciągania danych CAQI z odpowiedzi Airly."""
@@ -24,7 +23,6 @@ def draw_panel(black_image, draw_red, weather_data, airly_data, fonts, panel_con
 
     draw_black = ImageDraw.Draw(black_image)
 
-    # --- 1. Ekstrakcja Danych ---
     current_icon_path = weather_data.get('icon')
     forecast_icon_path = weather_data.get('forecast_icon')
     current_temp_text = f"{weather_data.get('temp_real', '--')}°"
@@ -33,53 +31,40 @@ def draw_panel(black_image, draw_red, weather_data, airly_data, fonts, panel_con
     caqi_data = _get_caqi_data(airly_data)
     caqi_text = str(caqi_data['value']) if caqi_data else "--"
 
-    # --- 2. Rysowanie Górnego Układu (Wycentrowany) ---
     top_y_center = y1 + 55
-
-    # Rozmiary ikon
     current_icon_size = 80
-    # Zmniejszenie ikony prognozy o kolejne 50%
-    forecast_icon_size = int(current_icon_size * 0.4) # 80 * 0.8 (poprzednio) * 0.5 (teraz) = 32
+    forecast_icon_size = int(current_icon_size * 0.4)
 
-    # Obliczanie szerokości całego górnego bloku w celu wycentrowania
-    spacing_top = 10 # Odstęp między elementami
+    spacing_top = 10
     temp_width = draw_red.textlength(current_temp_text, font=fonts['weather_temp'])
     total_top_width = current_icon_size + spacing_top + forecast_icon_size + spacing_top + temp_width
     
-    # Startowa pozycja X dla całego bloku
     current_x = x1 + (panel_width - total_top_width) // 2
 
-    # Ikona bieżącej pogody
     icon_img = drawing_utils.render_svg_with_cache(current_icon_path, size=current_icon_size) if current_icon_path else None
     if icon_img:
         icon_y = top_y_center - current_icon_size // 2
         black_image.paste(icon_img, (int(current_x), int(icon_y)), mask=icon_img)
     current_x += current_icon_size + spacing_top
     
-    # Ikona prognozowanej pogody
     forecast_icon_img = drawing_utils.render_svg_with_cache(forecast_icon_path, size=forecast_icon_size) if forecast_icon_path else None
     if forecast_icon_img:
         icon_y = top_y_center - forecast_icon_size // 2 + 15
         black_image.paste(forecast_icon_img, (int(current_x), int(icon_y)), mask=forecast_icon_img)
     current_x += forecast_icon_size + spacing_top
 
-    # Temperatura bieżąca
     draw_red.text((int(current_x), top_y_center), current_temp_text, font=fonts['weather_temp'], fill=0, anchor="lm")
 
-
-    # --- 3. Rysowanie Dolnego Wiersza: Dane z Airly ---
     bottom_y = y1 + 125
     small_font = fonts['small']
-    # Zwiększenie ikon o 20%
     small_icon_size = int(24 * 1.2)
     
     blocks = [
-        {'icon_path': config.ICON_HUMIDITY_PATH, 'text': humidity_text},
-        {'icon_path': config.ICON_PRESSURE_PATH, 'text': pressure_text},
-        {'icon_path': config.ICON_AIR_QUALITY_PATH, 'text': caqi_text}
+        {'icon_path': asset_manager.get_path('icon_humidity'), 'text': humidity_text},
+        {'icon_path': asset_manager.get_path('icon_pressure'), 'text': pressure_text},
+        {'icon_path': asset_manager.get_path('icon_air_quality'), 'text': caqi_text}
     ]
     
-    # Rysowanie bloków i wyśrodkowanie
     total_text_width = sum(draw_red.textlength(b['text'], font=small_font) for b in blocks)
     total_icon_width = small_icon_size * len(blocks)
     spacing_bottom = 20
@@ -94,7 +79,5 @@ def draw_panel(black_image, draw_red, weather_data, airly_data, fonts, panel_con
             black_image.paste(icon, (int(current_x), int(icon_y)), mask=icon)
             current_x += icon.width + 5
         
-        # Zmiana koloru wartości na czerwony
         draw_red.text((int(current_x), bottom_y), block['text'], font=small_font, fill=0, anchor="lm")
         current_x += draw_red.textlength(block['text'], font=small_font) + spacing_bottom
-
