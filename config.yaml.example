@@ -23,7 +23,14 @@ google_calendar:
     personal: 'YOUR_PERSONAL_CALENDAR_ID'
     holidays: 'YOUR_HOLIDAYS_CALENDAR_ID'
     unusual: 'YOUR_UNUSUAL_CALENDAR_ID'
+    shared: 'YOUR_SHARED_CALENDAR_ID'
   max_upcoming_events: 7
+
+# Interwały odświeżania API (w minutach)
+refresh_intervals:
+  accuweather_minutes: 32
+  airly_minutes: 16
+  google_calendar_minutes: 1
 
 # Konfiguracja zasobów (czcionki, ikony, obrazy)
 assets:

@@ -114,9 +114,10 @@ def update_events(verbose_mode=False):
         
         personal_events_raw = _get_events(service, GCAL_CONFIG['calendar_ids']['personal'], now_utc_iso, max_results=GCAL_CONFIG['max_upcoming_events'], verbose_mode=verbose_mode)
         holiday_events_raw = _get_events(service, GCAL_CONFIG['calendar_ids']['holidays'], now_utc_iso, max_results=GCAL_CONFIG['max_upcoming_events'], verbose_mode=verbose_mode)
+        shared_events_raw = _get_events(service, GCAL_CONFIG['calendar_ids']['shared'], now_utc_iso, max_results=GCAL_CONFIG['max_upcoming_events'], verbose_mode=verbose_mode)
 
         all_events = []
-        for event_raw in personal_events_raw + holiday_events_raw:
+        for event_raw in personal_events_raw + holiday_events_raw + shared_events_raw:
             start_info = event_raw.get('start')
             end_info = event_raw.get('end')
             if not start_info or not end_info:

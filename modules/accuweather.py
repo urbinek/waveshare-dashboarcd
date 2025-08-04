@@ -14,8 +14,6 @@ API_BASE_URL = "http://dataservice.accuweather.com"
 ACCUWEATHER_CONFIG = config['api_keys']
 CURRENT_CONDITIONS_URL = f"{API_BASE_URL}/currentconditions/v1/{ACCUWEATHER_CONFIG['accuweather_location_key']}"
 DAILY_FORECAST_URL = f"{API_BASE_URL}/forecasts/v1/daily/1day/{ACCUWEATHER_CONFIG['accuweather_location_key']}"
-LIMIT_FLAG_FILE = os.path.join(path_manager.CACHE_DIR, 'accuweather_limit.flag')
-
 def _fetch_accuweather_data(url, params):
     """Pomocnicza funkcja do pobierania danych z API AccuWeather."""
     logger.info(f"Pobieranie danych z API AccuWeather: {url}")
@@ -24,28 +22,9 @@ def _fetch_accuweather_data(url, params):
     return response.json()
 
 def update_accuweather_data(verbose_mode=False):
-    """Pobiera i zapisuje dane pogodowe z AccuWeather z obsługą limitu zapytań."""
-    logger.debug(f"Sprawdzanie pliku flagi limitu: {LIMIT_FLAG_FILE}")
-    if os.path.exists(LIMIT_FLAG_FILE):
-        logger.debug("Plik flagi limitu istnieje.")
-        try:
-            with open(LIMIT_FLAG_FILE, 'r') as f:
-                last_error_time = datetime.fromisoformat(f.read())
-
-            if datetime.now(timezone.utc) - last_error_time < timedelta(hours=1):
-                logger.info("Limit zapytań AccuWeather został osiągnięty. Ponowna próba po upływie godziny.")
-                return
-            else:
-                logger.info("Minęła godzina od ostatniego błędu limitu. Usuwam flagę i ponawiam próbę.")
-                os.remove(LIMIT_FLAG_FILE)
-        except (IOError, ValueError) as e:
-            logger.warning(f"Nie można odczytać pliku flagi limitu AccuWeather, usuwam go. Błąd: {e}")
-            os.remove(LIMIT_FLAG_FILE)
-    else:
-        logger.debug("Plik flagi limitu nie istnieje.")
-
-    api_key = ACCUWEATHER_CONFIG.get('api_key')
-    location_key = ACCUWEATHER_CONFIG.get('location_key')
+    """Pobiera i zapisuje dane pogodowe z AccuWeather."""
+    api_key = ACCUWEATHER_CONFIG.get('accuweather')
+    location_key = ACCUWEATHER_CONFIG.get('accuweather_location_key')
 
     logger.debug(f"ACCUWEATHER_API_KEY: {api_key or 'Brak'}")
     logger.debug(f"ACCUWEATHER_LOCATION_KEY: {location_key or 'Brak'}")
@@ -86,18 +65,7 @@ def update_accuweather_data(verbose_mode=False):
 
     except requests.exceptions.HTTPError as e:
         logger.error(f"Błąd HTTP podczas pobierania danych z AccuWeather: Status {e.response.status_code}, Odpowiedź: {e.response.text}")
-        if e.response.status_code == 503:
-            try:
-                error_data = e.response.json()
-                error_message = error_data.get("Message", "Brak szczegółowej wiadomości od serwera.")
-                logger.error(f"Przekroczono limit zapytań AccuWeather. Odpowiedź serwera: \"{error_message}\"")
-                with open(LIMIT_FLAG_FILE, 'w') as f:
-                    f.write(datetime.now(timezone.utc).isoformat())
-                logger.info(f"Wstrzymuję zapytania do AccuWeather na 1 godzinę.")
-            except json.JSONDecodeError:
-                logger.error(f"Przekroczono limit zapytań AccuWeather (odpowiedź serwera nie jest w formacie JSON): {e.response.text}")
-        else:
-            logger.warning(f"Wystąpił nieoczekiwany błąd HTTP podczas pobierania danych z AccuWeather: {e}")
+        logger.warning(f"Wystąpił nieoczekiwany błąd HTTP podczas pobierania danych z AccuWeather: {e}")
 
     except requests.exceptions.RequestException as e:
         logger.warning(f"Błąd sieci podczas pobierania danych z AccuWeather: {e}.")
