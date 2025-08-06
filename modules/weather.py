@@ -11,12 +11,12 @@ from modules import path_manager, asset_manager
 
 WEATHER_ICON_MAP = {
     1: 'sun', 2: 'sun', 3: 'sun', 4: 'sun', 5: 'sun', 6: 'cloud', 7: 'cloud', 8: 'cloud',
-    11: 'align-justify', 12: 'cloud-rain', 13: 'cloud-rain', 14: 'cloud-rain', 15: 'cloud-lightning',
+    11: 'cloud-off', 12: 'cloud-drizzle', 13: 'cloud-drizzle', 14: 'cloud-drizzle', 15: 'cloud-lightning',
     16: 'cloud-lightning', 17: 'cloud-lightning', 18: 'cloud-rain', 19: 'cloud-snow', 20: 'cloud-snow',
-    21: 'cloud-snow', 22: 'cloud-snow', 23: 'cloud-snow', 24: 'cloud-snow', 25: 'cloud-drizzle',
-    26: 'cloud-drizzle', 29: 'cloud-snow', 30: 'thermometer', 31: 'wind', 32: 'wind',
+    21: 'cloud-snow', 22: 'cloud-snow', 23: 'cloud-snow', 24: 'cloud-snow', 25: 'cloud-snow',
+    26: 'cloud-snow', 29: 'cloud-snow', 30: 'thermometer', 31: 'thermometer', 32: 'wind',
     33: 'moon', 34: 'moon', 35: 'cloud', 36: 'cloud', 37: 'cloud', 38: 'cloud',
-    39: 'cloud-rain', 40: 'cloud-rain', 41: 'cloud-lightning', 42: 'cloud-lightning',
+    39: 'cloud-drizzle', 40: 'cloud-drizzle', 41: 'cloud-lightning', 42: 'cloud-lightning',
     43: 'cloud-snow', 44: 'cloud-snow'
 }
 
@@ -78,6 +78,7 @@ def update_weather_data():
     final_weather_data = {
         "icon": _select_weather_icon(current_icon_num),
         "forecast_icon": _select_weather_icon(forecast_icon_num),
+        "weather_description": accuweather_data.get('current', {}).get('WeatherText', 'Brak opisu'),
         "temp_real": temp_real,
         "humidity": humidity,
         "pressure": pressure,

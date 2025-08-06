@@ -25,14 +25,15 @@ def draw_panel(black_image, draw_red, weather_data, airly_data, fonts, panel_con
 
     current_icon_path = weather_data.get('icon')
     forecast_icon_path = weather_data.get('forecast_icon')
+    weather_description = weather_data.get('weather_description', 'Brak opisu')
     current_temp_text = f"{weather_data.get('temp_real', '--')}°"
     humidity_text = f"{weather_data.get('humidity', '--')}%"
     pressure_text = f"{weather_data.get('pressure', '--')} hPa"
     caqi_data = _get_caqi_data(airly_data)
     caqi_text = str(caqi_data['value']) if caqi_data else "--"
 
-    top_y_center = y1 + 55
-    current_icon_size = 80
+    top_y_center = y1 + 30  # Adjusted from 55
+    current_icon_size = 60  # Adjusted from 80
     forecast_icon_size = int(current_icon_size * 0.4)
 
     spacing_top = 10
@@ -55,7 +56,15 @@ def draw_panel(black_image, draw_red, weather_data, airly_data, fonts, panel_con
 
     draw_red.text((int(current_x), top_y_center), current_temp_text, font=fonts['weather_temp'], fill=0, anchor="lm")
 
-    bottom_y = y1 + 125
+    # Draw weather description
+    description_font = fonts['tiny']
+    description_text_width = draw_red.textlength(weather_description, font=description_font)
+    description_x = x1 + (panel_width - description_text_width) // 2
+    description_y = y1 + 65  # Position below the main icon/temp block
+
+    draw_red.text((description_x, description_y), weather_description, font=description_font, fill=0)
+
+    bottom_y = y1 + 110  # Adjusted from 125
     small_font = fonts['small']
     small_icon_size = int(24 * 1.2)
     

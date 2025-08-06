@@ -28,6 +28,7 @@ def load_fonts():
         fonts['medium'] = ImageFont.truetype(asset_manager.get_path('font_bold'), 32)
         fonts['small'] = ImageFont.truetype(asset_manager.get_path('font_regular'), 20)
         fonts['small_bold'] = ImageFont.truetype(asset_manager.get_path('font_bold'), 20)
+        fonts['tiny'] = ImageFont.truetype(asset_manager.get_path('font_regular'), 16)
         fonts['weather_temp'] = ImageFont.truetype(asset_manager.get_path('font_bold'), 72)
         logging.info("Wszystkie czcionki wczytane pomyślnie.")
     except (IOError, KeyError) as e:

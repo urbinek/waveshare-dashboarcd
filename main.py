@@ -4,6 +4,7 @@ import argparse
 import os
 import sys
 import datetime
+import json
 from apscheduler.schedulers.blocking import BlockingScheduler
 from modules import time, weather, google_calendar, display, path_manager, startup_screens, asset_manager, airly, accuweather
 from modules.config_loader import config
