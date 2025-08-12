@@ -7,6 +7,18 @@ from PIL import Image, ImageFont
 
 from modules import asset_manager
 
+# Definicje kolorów dla 4-poziomowej skali szarości
+WHITE = 255        # Gray1
+LIGHT_GRAY = 170   # Gray2
+DARK_GRAY = 85     # Gray3
+BLACK = 0          # Gray4
+
+# Aliasy dla czytelności
+GRAY1 = WHITE
+GRAY2 = LIGHT_GRAY
+GRAY3 = DARK_GRAY
+GRAY4 = BLACK
+
 try:
     from cairosvg import svg2png
     SVG_RENDERER = 'cairosvg'

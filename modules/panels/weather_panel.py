@@ -15,13 +15,11 @@ def _get_caqi_data(airly_data):
             }
     return None
 
-def draw_panel(black_image, draw_red, weather_data, airly_data, fonts, panel_config):
+def draw_panel(image, draw, weather_data, airly_data, fonts, panel_config):
     """Rysuje zintegrowany panel pogody i jakości powietrza."""
     rect = panel_config.get('rect', [0, 0, 0, 0])
     x1, y1, x2, y2 = rect
     panel_width = x2 - x1
-
-    draw_black = ImageDraw.Draw(black_image)
 
     current_icon_path = weather_data.get('icon')
     forecast_icon_path = weather_data.get('forecast_icon')
@@ -37,7 +35,7 @@ def draw_panel(black_image, draw_red, weather_data, airly_data, fonts, panel_con
     forecast_icon_size = int(current_icon_size * 0.4)
 
     spacing_top = 10
-    temp_width = draw_red.textlength(current_temp_text, font=fonts['weather_temp'])
+    temp_width = draw.textlength(current_temp_text, font=fonts['weather_temp'])
     total_top_width = current_icon_size + spacing_top + forecast_icon_size + spacing_top + temp_width
     
     current_x = x1 + (panel_width - total_top_width) // 2
@@ -45,24 +43,24 @@ def draw_panel(black_image, draw_red, weather_data, airly_data, fonts, panel_con
     icon_img = drawing_utils.render_svg_with_cache(current_icon_path, size=current_icon_size) if current_icon_path else None
     if icon_img:
         icon_y = top_y_center - current_icon_size // 2
-        black_image.paste(icon_img, (int(current_x), int(icon_y)), mask=icon_img)
+        image.paste(icon_img, (int(current_x), int(icon_y)), mask=icon_img)
     current_x += current_icon_size + spacing_top
     
     forecast_icon_img = drawing_utils.render_svg_with_cache(forecast_icon_path, size=forecast_icon_size) if forecast_icon_path else None
     if forecast_icon_img:
         icon_y = top_y_center - forecast_icon_size // 2 + 15
-        black_image.paste(forecast_icon_img, (int(current_x), int(icon_y)), mask=forecast_icon_img)
+        image.paste(forecast_icon_img, (int(current_x), int(icon_y)), mask=forecast_icon_img)
     current_x += forecast_icon_size + spacing_top
 
-    draw_red.text((int(current_x), top_y_center), current_temp_text, font=fonts['weather_temp'], fill=0, anchor="lm")
+    draw.text((int(current_x), top_y_center), current_temp_text, font=fonts['weather_temp'], fill=drawing_utils.DARK_GRAY, anchor="lm")
 
     # Draw weather description
     description_font = fonts['tiny']
-    description_text_width = draw_red.textlength(weather_description, font=description_font)
+    description_text_width = draw.textlength(weather_description, font=description_font)
     description_x = x1 + (panel_width - description_text_width) // 2
     description_y = y1 + 65  # Position below the main icon/temp block
 
-    draw_red.text((description_x, description_y), weather_description, font=description_font, fill=0)
+    draw.text((description_x, description_y), weather_description, font=description_font, fill=drawing_utils.DARK_GRAY)
 
     bottom_y = y1 + 110  # Adjusted from 125
     small_font = fonts['small']
@@ -74,7 +72,7 @@ def draw_panel(black_image, draw_red, weather_data, airly_data, fonts, panel_con
         {'icon_path': asset_manager.get_path('icon_air_quality'), 'text': caqi_text}
     ]
     
-    total_text_width = sum(draw_red.textlength(b['text'], font=small_font) for b in blocks)
+    total_text_width = sum(draw.textlength(b['text'], font=small_font) for b in blocks)
     total_icon_width = small_icon_size * len(blocks)
     spacing_bottom = 20
     total_width_of_blocks = total_text_width + total_icon_width + (spacing_bottom * (len(blocks)))
@@ -85,8 +83,8 @@ def draw_panel(black_image, draw_red, weather_data, airly_data, fonts, panel_con
         icon = drawing_utils.render_svg_with_cache(block['icon_path'], size=small_icon_size)
         if icon:
             icon_y = bottom_y - icon.height // 2
-            black_image.paste(icon, (int(current_x), int(icon_y)), mask=icon)
+            image.paste(icon, (int(current_x), int(icon_y)), mask=icon)
             current_x += icon.width + 5
         
-        draw_red.text((int(current_x), bottom_y), block['text'], font=small_font, fill=0, anchor="lm")
-        current_x += draw_red.textlength(block['text'], font=small_font) + spacing_bottom
+        draw.text((int(current_x), bottom_y), block['text'], font=small_font, fill=drawing_utils.DARK_GRAY, anchor="lm")
+        current_x += draw.textlength(block['text'], font=small_font) + spacing_bottom

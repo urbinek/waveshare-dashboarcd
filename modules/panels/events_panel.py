@@ -4,8 +4,9 @@ from dateutil import parser
 import textwrap
 
 from modules.config_loader import config
+from modules import drawing_utils
 
-def draw_panel(draw_black, draw_red, calendar_data, fonts, box_info):
+def draw_panel(draw, calendar_data, fonts, box_info):
     """Rysuje listę nadchodzących wydarzeń w zdefiniowanym obszarze (box)."""
     logging.debug(f"Rysowanie panelu wydarzeń w obszarze: {box_info['rect']}")
     rect = box_info['rect']
@@ -25,10 +26,10 @@ def draw_panel(draw_black, draw_red, calendar_data, fonts, box_info):
     y_start_block = rect[1] + top_padding + y_offset
     x_start = rect[0] + left_padding
 
-    draw_black.text((x_start, y_start_block), "Nadchodzące:", font=fonts['small_bold'], fill=0)
+    draw.text((x_start, y_start_block), "Nadchodzące:", font=fonts['small_bold'], fill=drawing_utils.BLACK)
 
     if not events:
-        draw_black.text((x_start, y_start_block + line_height), "- Brak wydarzeń -", font=font_event, fill=0)
+        draw.text((x_start, y_start_block + line_height), "- Brak wydarzeń -", font=font_event, fill=drawing_utils.BLACK)
         return
 
     today = datetime.date.today()
@@ -49,24 +50,28 @@ def draw_panel(draw_black, draw_red, calendar_data, fonts, box_info):
             truncated_summary = textwrap.shorten(summary, width=30, placeholder="...")
 
             if event.get('is_holiday'):
-                draw_obj = draw_red
-                text_fill = 255
+                # Holiday - use DARK_GRAY background, WHITE text
+                draw.rectangle((rect[0], y_slot_top, rect[2], y_slot_top + line_height), fill=drawing_utils.DARK_GRAY)
+                text_color = drawing_utils.WHITE
                 time_formatted = event_dt_obj.strftime('%d.%m')
-                draw_obj.rectangle((rect[0], y_slot_top, rect[2], y_slot_top + line_height), fill=0)
             elif is_today:
                 is_weekend = event_dt_obj.weekday() >= 5
                 is_holiday = event_dt_obj.date() in holiday_dates_set
                 is_special_day = is_weekend or is_holiday
-                draw_obj = draw_red if is_special_day else draw_black
-                text_fill = 255
+                if is_special_day:
+                    # Today and special day - use DARK_GRAY background, WHITE text
+                    draw.rectangle((rect[0], y_slot_top, rect[2], y_slot_top + line_height), fill=drawing_utils.DARK_GRAY)
+                    text_color = drawing_utils.WHITE
+                else:
+                    # Today, normal day - use BLACK text, WHITE background (default)
+                    text_color = drawing_utils.BLACK
                 time_formatted = event_dt_obj.strftime('%H:%M')
-                draw_obj.rectangle((rect[0], y_slot_top, rect[2], y_slot_top + line_height), fill=0)
             else:
-                draw_obj = draw_black
-                text_fill = 0
+                # Normal event - use BLACK text, WHITE background (default)
+                text_color = drawing_utils.BLACK
                 time_formatted = event_dt_obj.strftime('%d.%m')
 
-            draw_obj.text((x_start, y_centered), time_formatted, font=font_date, fill=text_fill, anchor="lm")
-            draw_obj.text((x_start + time_width, y_centered), truncated_summary, font=font_event, fill=text_fill, anchor="lm")
+            draw.text((x_start, y_centered), time_formatted, font=font_date, fill=text_color, anchor="lm")
+            draw.text((x_start + time_width, y_centered), truncated_summary, font=font_event, fill=text_color, anchor="lm")
         except (ValueError, TypeError) as e:
             logging.warning(f"Nie udało się przetworzyć daty wydarzenia '{start_str}': {e}")

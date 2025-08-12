@@ -4,7 +4,7 @@ This document provides context for the Gemini AI assistant to effectively contri
 
 ## Project Overview
 
-The project is a personalized, dual-color (black and red) dashboard for a 7.5-inch Waveshare e-paper display, designed to run on a Raspberry Pi. It integrates data from various sources to create a useful and aesthetic information screen.
+The project is a personalized, grayscale (black and white with shades of gray) dashboard for a 7.5-inch Waveshare e-paper display, designed to run on a Raspberry Pi. It integrates data from various sources to create a useful and aesthetic information screen.
 
 ## Core Technologies
 

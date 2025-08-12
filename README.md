@@ -1,6 +1,6 @@
 # Waveshare E-Paper Dashboard
 
-Spersonalizowany, dwukolorowy (czarno-czerwony) dashboard dla 7.5-calowego wyświetlacza e-papierowego Waveshare V2, zaprojektowany do działania na Raspberry Pi. Aplikacja integruje dane z wielu źródeł, aby stworzyć użyteczny i estetyczny ekran informacyjny.
+Spersonalizowany, dwukolorowy (czarno-biały z odcieniami szarości) dashboard dla 7.5-calowego wyświetlacza e-papierowego Waveshare (model WB), zaprojektowany do działania na Raspberry Pi. Aplikacja integruje dane z wielu źródeł, aby stworzyć użyteczny i estetyczny ekran informacyjny.
 
 <!-- TODO: Wstaw zrzut ekranu -->
 
@@ -56,8 +56,8 @@ pip install -r requirements.txt cairosvg
 Skopiuj plik konfiguracyjny i dostosuj go do swoich potrzeb.
 
 ```bash
-cp config.py.example config.py
-nano config.py
+cp config.yaml.example config.yaml
+nano config.yaml
 ```
 
 #### a) Moduł Pogody
@@ -195,7 +195,7 @@ Aby aplikacja działała w tle i uruchamiała się automatycznie po starcie Rasp
 
 ## Podziękowania i Zasoby
 
-- **Wyświetlacz**: Projekt został stworzony dla wyświetlacza [Waveshare 7.5inch e-Paper HAT (H)](https://www.waveshare.com/product/displays/e-paper/7.5inch-e-paper-hat-h.htm).
+- **Wyświetlacz**: Projekt został stworzony dla wyświetlacza [Waveshare 7.5inch e-Paper HAT (WB)](https://www.waveshare.com/wiki/7.5inch_e-Paper_HAT_Manual).
 - **Biblioteki**: Wykorzystano oficjalne biblioteki od Waveshare, dostępne na [GitHubie](https://github.com/waveshareteam/e-Paper).
 - **Wsparcie AI**: Znaczna część kodu została napisana i zrefaktoryzowana przy pomocy asystenta kodowania Gemini.
 
@@ -204,7 +204,7 @@ Aby aplikacja działała w tle i uruchamiała się automatycznie po starcie Rasp
 ## Struktura Projektu
 
 - `main.py`: Główny plik aplikacji, zarządza harmonogramem i cyklem życia.
-- `config.py`: Centralny plik konfiguracyjny.
+- `config.yaml`: Centralny plik konfiguracyjny.
 - `modules/`: Zawiera logikę poszczególnych funkcjonalności.
   - `panels/`: Moduły odpowiedzialne za rysowanie konkretnych sekcji na ekranie.
   - Szczegółowe opisy modułów znajdziesz w dedykowanych plikach `README.md` wewnątrz tych katalogów.
