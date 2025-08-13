@@ -86,7 +86,7 @@ def generate_image(layout_config, draw_borders=False):
             drawing_utils.draw_error_message(draw, error_message, fonts, layout_config['events'])
     else:
         if layout_config.get('events', {}).get('enabled', True):
-            events_panel.draw_panel(draw, calendar_data, fonts, layout_config['events'])
+            events_panel.draw_panel(image, draw, calendar_data, fonts, layout_config['events'])
         if layout_config.get('calendar', {}).get('enabled', True):
             calendar_panel.draw_panel(draw, calendar_data, fonts, layout_config['calendar'])
 
@@ -129,15 +129,23 @@ def generate_image(layout_config, draw_borders=False):
                 current_y += desc_line_height
     return image
 
-def _execute_display_update(img, mode, flip, clear_screen=False):
+def _execute_display_update(img, mode, flip, clear_screen=False, rect=None, quiet=False):
     """
     Prywatna funkcja pomocnicza do obsługi komunikacji z wyświetlaczem E-Ink.
     """
     global _FLIP_LOGGED
+    logging.debug(f"_execute_display_update: Rozpoczęcie dla trybu: {mode}, flip: {flip}, rect: {rect}")
     try:
         with EPD_LOCK:
-            log_level = logging.INFO # Szybki tryb nie jest już wspierany, więc logujemy jako INFO
-            logging.log(log_level, f"Rozpoczynanie aktualizacji wyświetlacza (tryb: {mode}).")
+            if mode == 'full':
+                log_level = logging.DEBUG if quiet else logging.INFO
+                logging.log(log_level, f"Rozpoczynanie aktualizacji wyświetlacza (tryb: {mode}).")
+            elif mode == 'partial':
+                log_level = logging.DEBUG
+                logging.log(log_level, f"Rozpoczynanie aktualizacji wyświetlacza (tryb: {mode}). Obszar: {rect}")
+            else:
+                raise ValueError(f"Nieznany tryb aktualizacji: {mode}")
+
             if flip:
                 if not _FLIP_LOGGED:
                     logging.info("Obracanie obrazu o 180 stopni.")
@@ -149,22 +157,40 @@ def _execute_display_update(img, mode, flip, clear_screen=False):
                 img_display = img
             
             epd = epd7in5_V2.EPD()
-            epd.init()
-            if clear_screen:
-                logging.debug("Czyszczenie ekranu przed pełnym odświeżeniem.")
-                epd.Clear()
-
-            # Wyświetlanie jednego bufora obrazu
-            epd.display(epd.getbuffer(img_display))
+            if mode == 'full':
+                epd.init()
+                if clear_screen:
+                    logging.debug("Czyszczenie ekranu przed pełnym odświeżeniem.")
+                    epd.Clear()
+                epd.display(epd.getbuffer(img_display))
+            elif mode == 'partial':
+                epd.init_part()
+                # display_Partial expects x, y, w, h
+                # Transform rect if display is flipped
+                if flip:
+                    transformed_rect = (
+                        EPD_WIDTH - rect[2],
+                        EPD_HEIGHT - rect[3],
+                        EPD_WIDTH - rect[0],
+                        EPD_HEIGHT - rect[1]
+                    )
+                    logging.debug(f"Oryginalny rect: {rect}, Transformed rect: {transformed_rect}")
+                    epd.display_Partial(epd.getbuffer(img_display), transformed_rect[0], transformed_rect[1], transformed_rect[2]-transformed_rect[0], transformed_rect[3]-transformed_rect[1])
+                else:
+                    epd.display_Partial(epd.getbuffer(img_display), rect[0], rect[1], rect[2]-rect[0], rect[3]-rect[1])
+            
             epd.sleep()
+            logging.debug(f"_execute_display_update: Zakończenie dla trybu: {mode}")
             logging.log(log_level, f"Aktualizacja wyświetlacza (tryb: {mode}) zakończona.")
     except Exception as e:
         logging.error(f"Wystąpił błąd podczas komunikacji z wyświetlaczem: {e}", exc_info=True)
 
-def update_display(layout_config, force_full_refresh=False, draw_borders=False, apply_pixel_shift=False, flip=False):
+def update_display(layout_config, force_full_refresh=False, draw_borders=False, apply_pixel_shift=False, flip=False, quiet=False):
     """Generuje nowy obraz i wykonuje pełne odświeżenie wyświetlacza."""
+    logging.debug("update_display: Rozpoczęcie.")
     try:
-        logging.info("Generowanie nowego obrazu do pełnego odświeżenia.")
+        log_level = logging.DEBUG if quiet else logging.INFO
+        logging.log(log_level, "Generowanie nowego obrazu do pełnego odświeżenia.")
         img = generate_image(layout_config, draw_borders=draw_borders)
         if apply_pixel_shift:
             max_shift = 2
@@ -174,17 +200,19 @@ def update_display(layout_config, force_full_refresh=False, draw_borders=False, 
             img = _shift_image(img, dx, dy)
         with FileLock(IMAGE_LOCK_PATH):
             img.save(IMAGE_PATH, "PNG")
-        _execute_display_update(img, mode='full', flip=flip, clear_screen=force_full_refresh)
+        _execute_display_update(img, mode='full', flip=flip, clear_screen=force_full_refresh, quiet=quiet)
     except Exception as e:
         logging.error(f"Wystąpił błąd podczas przygotowywania pełnej aktualizacji: {e}", exc_info=True)
+    logging.debug("update_display: Zakończenie.")
 
 def partial_update_time(layout_config, draw_borders=False, flip=False):
     """Wyświetlacz czarno-biały nie wspiera szybkiej aktualizacji. Wykonywane jest pełne odświeżenie."""
-    logging.warning("Wyświetlacz nie wspiera częściowej aktualizacji. Wykonywanie pełnego odświeżenia.")
-    update_display(layout_config, force_full_refresh=False, draw_borders=draw_borders, apply_pixel_shift=False, flip=flip)
+    logging.debug("Wyświetlacz nie wspiera częściowej aktualizacji. Wykonywanie pełnego odświeżenia (tryb cichy).")
+    update_display(layout_config, force_full_refresh=False, draw_borders=draw_borders, apply_pixel_shift=False, flip=flip, quiet=True)
 
 def clear_display():
     """Inicjalizuje wyświetlacz i czyści jego zawartość."""
+    logging.debug("clear_display: Rozpoczęcie.")
     try:
         with EPD_LOCK:
             logging.info("Czyszczenie wyświetlacza e-ink...")
@@ -195,3 +223,4 @@ def clear_display():
             logging.info("Wyświetlacz wyczyszczony.")
     except Exception as e:
         logging.error(f"Wystąpił błąd podczas czyszczenia wyświetlacza: {e}", exc_info=True)
+    logging.debug("clear_display: Zakończenie.")

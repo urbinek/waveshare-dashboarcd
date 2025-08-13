@@ -36,12 +36,15 @@ def load_fonts():
     logging.info("Wczytywanie czcionek do pamięci podręcznej...")
     fonts = {}
     try:
-        fonts['large'] = ImageFont.truetype(asset_manager.get_path('font_bold'), 96)
+        fonts['large'] = ImageFont.truetype(asset_manager.get_path('font_bold'), 117)
         fonts['medium'] = ImageFont.truetype(asset_manager.get_path('font_bold'), 32)
-        fonts['small'] = ImageFont.truetype(asset_manager.get_path('font_regular'), 20)
-        fonts['small_bold'] = ImageFont.truetype(asset_manager.get_path('font_bold'), 20)
-        fonts['tiny'] = ImageFont.truetype(asset_manager.get_path('font_regular'), 16)
-        fonts['weather_temp'] = ImageFont.truetype(asset_manager.get_path('font_bold'), 72)
+        fonts['small'] = ImageFont.truetype(asset_manager.get_path('font_regular'), 22)
+        fonts['small_bold'] = ImageFont.truetype(asset_manager.get_path('font_bold'), 22)
+        fonts['small_holiday'] = ImageFont.truetype(asset_manager.get_path('font_regular'), 26)
+        fonts['small_bold_holiday'] = ImageFont.truetype(asset_manager.get_path('font_bold'), 26)
+        fonts['tiny'] = ImageFont.truetype(asset_manager.get_path('font_regular'), 18)
+        fonts['ellipsis'] = ImageFont.truetype(asset_manager.get_path('font_regular'), 11)
+        fonts['weather_temp'] = ImageFont.truetype(asset_manager.get_path('font_bold'), 79)
         logging.info("Wszystkie czcionki wczytane pomyślnie.")
     except (IOError, KeyError) as e:
         logging.critical(f"Nie udało się wczytać pliku czcionki: {e}. Sprawdź konfigurację w config.yaml.")

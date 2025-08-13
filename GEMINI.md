@@ -127,3 +127,8 @@ Once the application is running and data is cached, logging becomes more concise
 
 -   `--service`: Optimizes log format for `systemd` (no timestamps, centered module/level names). Primarily `INFO` level and above are shown.
 -   `--verbose`: Activates `DEBUG` level logging across all modules, providing maximum detail for troubleshooting. If avaliable print json reponses from API querries
+
+## Operational Guidelines
+
+### Git Operations
+- **Commit Management:** The user prefers to manage Git commits themselves. Do not perform `git commit`, `git add`, `git push`, or similar operations unless explicitly instructed by the user. Focus on providing code modifications and summaries for the user to review and commit.

@@ -162,7 +162,14 @@ def main():
             try:
                 with open(LAST_UPDATE_TIMES_FILE, 'r', encoding='utf-8') as f:
                     loaded_times_str = json.load(f)
-                loaded_times = {k: datetime.fromisoformat(v) for k, v in loaded_times_str.items()}
+                loaded_times = {}
+                for k, v in loaded_times_str.items():
+                    try:
+                        # Try parsing with microseconds
+                        loaded_times[k] = datetime.datetime.strptime(v, "%Y-%m-%dT%H:%M:%S.%f")
+                    except ValueError:
+                        # If microseconds are not present, try parsing without them
+                        loaded_times[k] = datetime.datetime.strptime(v, "%Y-%m-%dT%H:%M:%S")
                 logger.info("Pomyślnie wczytano czasy ostatniej aktualizacji.")
                 return loaded_times
             except (FileNotFoundError, json.JSONDecodeError, ValueError) as e:

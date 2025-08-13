@@ -230,6 +230,7 @@ def build_calendar_grid():
             for day_date in week:
                 week_list.append({
                     "day": day_date.day,
+                    "date": day_date.isoformat(),
                     "is_today": day_date == today_local,
                     "is_weekend": day_date.weekday() >= 5,
                     "is_holiday": day_date in holiday_dates_set,
