@@ -42,9 +42,13 @@ def load_fonts():
         fonts['small_bold'] = ImageFont.truetype(asset_manager.get_path('font_bold'), 22)
         fonts['small_holiday'] = ImageFont.truetype(asset_manager.get_path('font_regular'), 26)
         fonts['small_bold_holiday'] = ImageFont.truetype(asset_manager.get_path('font_bold'), 26)
+        fonts['calendar_header'] = ImageFont.truetype(asset_manager.get_path('font_bold'), 24)
+        fonts['calendar_day'] = ImageFont.truetype(asset_manager.get_path('font_regular'), 24)
         fonts['tiny'] = ImageFont.truetype(asset_manager.get_path('font_regular'), 18)
+        fonts['tiny_scaled'] = ImageFont.truetype(asset_manager.get_path('font_regular'), 20)
         fonts['ellipsis'] = ImageFont.truetype(asset_manager.get_path('font_regular'), 11)
         fonts['weather_temp'] = ImageFont.truetype(asset_manager.get_path('font_bold'), 79)
+        fonts['weather_temp_scaled'] = ImageFont.truetype(asset_manager.get_path('font_bold'), 87)
         logging.info("Wszystkie czcionki wczytane pomyślnie.")
     except (IOError, KeyError) as e:
         logging.critical(f"Nie udało się wczytać pliku czcionki: {e}. Sprawdź konfigurację w config.yaml.")

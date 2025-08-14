@@ -11,8 +11,9 @@ def draw_panel(image, draw, calendar_data, fonts, box_info):
     """Rysuje listę nadchodzących wydarzeń w zdefiniowanym obszarze (box)."""
     logging.debug(f"Rysowanie panelu wydarzeń w obszarze: {box_info['rect']}")
     rect = box_info['rect']
-    y_offset = box_info.get('y_offset', 0)
-    x_offset = box_info.get('x_offset', 0) # Add x_offset
+    adjustments = box_info.get('positional_adjustments', {})
+    x_offset = adjustments.get('x', 0)
+    y_offset = adjustments.get('y', 0)
 
     line_height = 30
     time_width = 70

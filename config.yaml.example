@@ -50,18 +50,27 @@ panels:
   time:
     enabled: true
     rect: [0, 0, 400, 160]
-    y_offset: 10
+    positional_adjustments:
+      x: 0
+      y: 10
 
   events:
     enabled: true
     rect: [0, 160, 400, 480]
-    y_offset: 0
+    positional_adjustments:
+      x: 0
+      y: 0
 
   weather_and_air:
     enabled: true
     rect: [400, 0, 800, 160]
+    positional_adjustments:
+      x: 20
+      y: 0
 
   calendar:
     enabled: true
     rect: [400, 160, 800, 480]
-    y_offset: 0
+    positional_adjustments:
+      x: 20
+      y: -50

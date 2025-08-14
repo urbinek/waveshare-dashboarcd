@@ -20,8 +20,11 @@ def draw_panel(image, draw, time_data, weather_data, fonts, box_info):
     """Rysuje panel czasu z podziałem na datę i informacje o słońcu."""
     logging.debug(f"Rysowanie panelu czasu w obszarze: {box_info['rect']}")
     rect = box_info['rect']
-    y_offset = box_info.get('y_offset', 0)
-    box_center_x = rect[0] + (rect[2] - rect[0]) // 2
+    adjustments = box_info.get('positional_adjustments', {})
+    x_offset = adjustments.get('x', 0)
+    y_offset = adjustments.get('y', 0)
+    
+    box_center_x = rect[0] + (rect[2] - rect[0]) // 2 + x_offset
     box_width = rect[2] - rect[0]
 
     time_str = time_data.get('time', '??:??')
@@ -55,13 +58,13 @@ def draw_panel(image, draw, time_data, weather_data, fonts, box_info):
     draw.text((box_center_x, current_y), time_str, font=font_large, fill=drawing_utils.BLACK, anchor="mt")
     current_y += time_h + padding
 
-    date_col_center_x = rect[0] + (date_col_width // 2)
+    date_col_center_x = rect[0] + (date_col_width // 2) + x_offset
     draw.text((date_col_center_x, current_y), weekday_str, font=font_medium, fill=drawing_utils.BLACK, anchor="mt")
     weekday_h = font_medium.getmask(weekday_str).size[1]
     draw.text((date_col_center_x, current_y + weekday_h + 5), date_str, font=font_medium, fill=drawing_utils.BLACK, anchor="mt")
 
     sun_col_start_x = rect[0] + date_col_width
-    sun_col_center_x = sun_col_start_x + (sun_col_width // 2)
+    sun_col_center_x = sun_col_start_x + (sun_col_width // 2) + x_offset
     sun_info_y_center = current_y + (bottom_part_h // 2)
 
     sunrise_y_pos = sun_info_y_center - (sun_icon_size // 2)
